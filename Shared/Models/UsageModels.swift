@@ -208,4 +208,23 @@ struct ExtraUsage: Codable, Equatable {
 struct CachedUsage: Codable {
     let usage: UsageResponse
     let fetchDate: Date
+    let provider: UsageProvider
+
+    init(usage: UsageResponse, fetchDate: Date, provider: UsageProvider = .claude) {
+        self.usage = usage
+        self.fetchDate = fetchDate
+        self.provider = provider
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case usage, fetchDate, provider
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        usage = try container.decode(UsageResponse.self, forKey: .usage)
+        fetchDate = try container.decode(Date.self, forKey: .fetchDate)
+        // Caches written before Codex support are necessarily Claude caches.
+        provider = try container.decodeIfPresent(UsageProvider.self, forKey: .provider) ?? .claude
+    }
 }

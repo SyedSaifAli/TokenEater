@@ -40,8 +40,8 @@
 "widget.updated" = "Upd. %@";
 "widget.refresh.interval" = "15 min";
 "widget.refresh.button" = "Refresh";
-"widget.description.usage" = "Monitor your Claude usage in real time";
-"widget.description.pacing" = "Your Claude usage pace";
+"widget.description.usage" = "Monitor your selected AI usage in real time";
+"widget.description.pacing" = "Your selected AI usage pace";
 "widget.title.sessionRing" = "Session Ring";
 "widget.description.sessionRing" = "Big ring gauge for your 5h session window with Smart Color";
 "widget.title.pacingGraph" = "Pacing Graph";
@@ -66,7 +66,7 @@
 "widget.history.empty.body" = "Open TokenEater so it can index your sessions";
 
 /* Settings */
-"settings.subtitle" = "Monitor your Claude usage";
+"settings.subtitle" = "Monitor your Claude or Codex usage";
 "settings.test" = "Test";
 "settings.refresh" = "Refresh";
 "settings.refresh.title" = "Refresh";
@@ -340,6 +340,7 @@
 "settings.notifications.group.health" = "Health";
 "settings.notifications.group.health.hint" = "Connection issues that might block tracking.";
 "settings.notifications.token" = "Token expired";
+"settings.notifications.codex.auth" = "Codex sign-in required";
 "settings.notifications.status.degraded" = "Service degraded";
 "settings.notifications.status.restored" = "Service restored";
 
@@ -824,6 +825,10 @@
 "onboarding.card.claudecode.notfound.step2" = "sign in once: run claude";
 "onboarding.card.claudecode.notfound.step3" = "come back, hit retry";
 "onboarding.card.claudecode.retry" = "Retry";
+"onboarding.card.codex.title" = "Codex CLI";
+"onboarding.card.codex.notfound.step1" = "install: npm install -g @openai/codex";
+"onboarding.card.codex.notfound.step2" = "sign in once: run codex login";
+"onboarding.card.codex.notfound.step3" = "come back, hit retry";
 
 /* Card 2 - Notifications */
 "onboarding.card.notifications.title" = "Notifications";
@@ -852,16 +857,37 @@
 "onboarding.card.connect.authorize" = "Authorize";
 "onboarding.card.connect.retry" = "Retry";
 "onboarding.card.connect.idle.scene" = "macOS will ask once.\nTap Always Allow when it does.";
+"onboarding.card.connect.codex.title" = "Connect Codex";
+"onboarding.card.connect.codex.idle.scene" = "Uses Codex's local app-server.\nYour OpenAI token stays inside Codex.";
+"onboarding.card.connect.codex.connect" = "Connect";
 
 /* Vendor Status Banner */
 "status.banner.degraded" = "Claude is degraded";
 "status.banner.down" = "Claude is down";
 "status.banner.view" = "Status page";
+"status.banner.vendor.degraded" = "%@ is degraded";
+"status.banner.vendor.down" = "%@ is down";
 
 /* Vendor Status Dashboard Card */
 "dashboard.status.degraded" = "Claude is degraded";
 "dashboard.status.down" = "Claude is down";
 "dashboard.status.affected" = "Affected: %@";
+"dashboard.status.vendor.degraded" = "%@ is degraded";
+"dashboard.status.vendor.down" = "%@ is down";
+
+/* Codex provider */
+"settings.provider.label" = "Usage source";
+"settings.provider.claude.hint" = "Reads Claude Code's OAuth usage API using the existing silent credential flow.";
+"settings.provider.codex.hint" = "Reads ChatGPT plan limits through the official local Codex app-server. TokenEater never reads your OpenAI token.";
+"settings.status.provider.subtitle" = "Outage monitoring for %@";
+"connect.codex.success" = "Connected via Codex";
+"error.banner.codex.signin" = "Run codex login, then retry";
+"notif.title.status.openai.degraded" = "Codex is degraded";
+"notif.body.status.openai.degraded" = "OpenAI reports a Codex service issue";
+"notif.title.status.openai.down" = "Codex is down";
+"notif.body.status.openai.down" = "OpenAI reports a major Codex outage";
+"notif.title.status.openai.restored" = "Codex is back";
+"notif.body.status.openai.restored" = "Service restored";
 
 /* Fable (Claude Fable weekly limit) */
 "metric.fable" = "Fable";

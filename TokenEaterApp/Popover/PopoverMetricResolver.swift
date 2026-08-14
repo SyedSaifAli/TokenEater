@@ -77,6 +77,12 @@ enum PopoverMetricResolver {
     /// satellite behavior.
     static func isAvailable(_ kind: PopoverElementKind, usage: UsageStore) -> Bool {
         switch kind {
+        case .session:
+            return usage.provider != .codex || usage.lastUsage?.fiveHour != nil
+        case .weekly:
+            return usage.provider != .codex || usage.lastUsage?.sevenDay != nil
+        case .sonnet:
+            return usage.provider != .codex || usage.lastUsage?.sevenDaySonnet != nil
         case .fable: return usage.hasFable
         case .extraCredits: return usage.hasExtraCredits
         case .sessionPacing: return usage.fiveHourPacing != nil

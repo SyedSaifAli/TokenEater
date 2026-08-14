@@ -4,10 +4,12 @@ import SwiftUI
 /// Finish CTA at the bottom-right. Title and subtitle are left-aligned in
 /// reading flow; the progress + Finish anchor to the trailing edge so the
 /// CTA sits naturally bottom-right of the page.
-/// Finish is disabled until both gates (Claude Code + Connect) are green.
+/// Finish is disabled until both gates (selected CLI + Connect) are green.
 struct OnboardingHero: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @EnvironmentObject private var settingsStore: SettingsStore
+    @EnvironmentObject private var usageStore: UsageStore
+    @EnvironmentObject private var themeStore: ThemeStore
 
     private let accent = DS.Palette.brandPrimary
 
@@ -81,6 +83,8 @@ struct OnboardingHero: View {
     private var finishButton: some View {
         Button {
             viewModel.completeOnboarding()
+            usageStore.provider = viewModel.provider
+            usageStore.reloadConfig(thresholds: themeStore.thresholds)
             settingsStore.hasCompletedOnboarding = true
             // A fresh install discovers the Studio through the nav itself;
             // the what's-new intro is for upgrading users only.

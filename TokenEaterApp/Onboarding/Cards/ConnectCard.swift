@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// Fourth card - gates the onboarding. Tapping Authorize fires the real
-/// macOS Keychain prompt; the scene shows a clear illustration of the
-/// upcoming permission request before tapping, then a spinner while
-/// authorising, then a checkmark (or X with retry) afterwards.
+/// Fourth card - gates the onboarding. Claude authorizes the existing
+/// Keychain flow; Codex verifies the signed-in local app-server connection.
 struct ConnectCard: View {
     @ObservedObject var viewModel: OnboardingViewModel
 
@@ -13,7 +11,9 @@ struct ConnectCard: View {
         OnboardingCard(
             kind: .required,
             tilt: .right,
-            title: "onboarding.card.connect.title",
+            title: viewModel.provider == .codex
+                ? "onboarding.card.connect.codex.title"
+                : "onboarding.card.connect.title",
             statusText: statusText,
             statusColor: statusColor,
             accent: accent,
@@ -87,14 +87,16 @@ struct ConnectCard: View {
                 Circle()
                     .fill(accent.opacity(0.12))
                     .frame(width: 56, height: 56)
-                Image(systemName: "key.fill")
+                Image(systemName: viewModel.provider == .codex ? "lock.shield.fill" : "key.fill")
                     .font(.system(size: 24, weight: .medium))
                     .foregroundStyle(accent)
                     .rotationEffect(.degrees(-15))
             }
             .shadow(color: accent.opacity(0.4), radius: 14)
 
-            Text("onboarding.card.connect.idle.scene")
+            Text(viewModel.provider == .codex
+                 ? "onboarding.card.connect.codex.idle.scene"
+                 : "onboarding.card.connect.idle.scene")
                 .font(.system(size: 11))
                 .foregroundStyle(.white.opacity(0.6))
                 .multilineTextAlignment(.center)
@@ -108,7 +110,9 @@ struct ConnectCard: View {
     private var control: some View {
         switch viewModel.connectionStatus {
         case .idle:
-            actionButton(label: "onboarding.card.connect.authorize") {
+            actionButton(label: viewModel.provider == .codex
+                         ? "onboarding.card.connect.codex.connect"
+                         : "onboarding.card.connect.authorize") {
                 viewModel.connect()
             }
         case .failed:

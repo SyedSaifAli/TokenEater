@@ -40,7 +40,7 @@ struct OrganizationInfo: Codable {
 }
 
 enum PlanType: String, Codable {
-    case pro, max, team, enterprise, free, unknown
+    case plus, pro, max, team, business, enterprise, edu, free, unknown
 
     init(from account: AccountInfo, organization: OrganizationInfo?) {
         if account.hasClaudeMax { self = .max }
@@ -57,10 +57,13 @@ enum PlanType: String, Codable {
 
     var displayLabel: String {
         switch self {
+        case .plus: return "PLUS"
         case .pro: return "PRO"
         case .max: return "MAX"
         case .team: return "TEAM"
+        case .business: return "BUSINESS"
         case .enterprise: return "ENTERPRISE"
+        case .edu: return "EDU"
         case .free: return "FREE"
         case .unknown: return ""
         }
@@ -69,11 +72,25 @@ enum PlanType: String, Codable {
     var badgeColor: Color {
         switch self {
         case .max: return .purple
-        case .pro: return .blue
+        case .plus, .pro: return .blue
         case .team: return .teal
-        case .enterprise: return .orange
+        case .business: return .indigo
+        case .enterprise, .edu: return .orange
         case .free: return .gray
         case .unknown: return .clear
+        }
+    }
+
+    init(codexPlanType: String?) {
+        switch codexPlanType?.lowercased() {
+        case "plus": self = .plus
+        case "pro": self = .pro
+        case "team": self = .team
+        case "business": self = .business
+        case "enterprise": self = .enterprise
+        case "edu", "education": self = .edu
+        case "free": self = .free
+        default: self = .unknown
         }
     }
 }

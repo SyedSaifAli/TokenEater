@@ -2,6 +2,13 @@ import SwiftUI
 
 @MainActor
 final class UsageStore: ObservableObject {
+    @Published var provider: UsageProvider {
+        didSet {
+            guard provider != oldValue else { return }
+            provider.persist()
+            clearForProviderChange()
+        }
+    }
     @Published var fiveHourPct: Int = 0
     @Published var sevenDayPct: Int = 0
     @Published var sonnetPct: Int = 0
@@ -51,7 +58,7 @@ final class UsageStore: ObservableObject {
     /// instead of the alarming re-auth banner. When there's no prior snapshot
     /// (fresh install, never connected) `isDisconnected` stays the right signal.
     var isAwaitingRefresh: Bool {
-        errorState == .tokenUnavailable && lastUsage != nil
+        provider == .claude && errorState == .tokenUnavailable && lastUsage != nil
     }
 
     /// True when the paid Extra Credits pool is provisioned and turned on for
@@ -72,6 +79,7 @@ final class UsageStore: ObservableObject {
 
     private let repository: UsageRepositoryProtocol
     private let tokenProvider: TokenProviderProtocol
+    private let codexUsageService: CodexUsageServiceProtocol
     private let sharedFileService: SharedFileServiceProtocol
     private let notificationService: NotificationServiceProtocol
     private var refreshTask: Task<Void, Never>?
@@ -106,17 +114,23 @@ final class UsageStore: ObservableObject {
     var notifTogglesProvider: (() -> NotificationToggles?)?
 
     var cachedUsage: CachedUsage? {
-        sharedFileService.cachedUsage
+        guard let cached = sharedFileService.cachedUsage,
+              cached.provider == provider else { return nil }
+        return cached
     }
 
     init(
+        provider: UsageProvider = .claude,
         repository: UsageRepositoryProtocol = UsageRepository(),
         tokenProvider: TokenProviderProtocol = TokenProvider(),
+        codexUsageService: CodexUsageServiceProtocol = CodexUsageService(),
         sharedFileService: SharedFileServiceProtocol = SharedFileService(),
         notificationService: NotificationServiceProtocol = NotificationService()
     ) {
+        self.provider = provider
         self.repository = repository
         self.tokenProvider = tokenProvider
+        self.codexUsageService = codexUsageService
         self.sharedFileService = sharedFileService
         self.notificationService = notificationService
     }
@@ -125,11 +139,24 @@ final class UsageStore: ObservableObject {
         // Prevent concurrent refreshes
         guard !isLoading else { return }
 
-        // Resolve token
-        guard let token = tokenProvider.currentToken() else {
-            hasConfig = false
-            errorState = .tokenUnavailable
-            return
+        // Resolve only the selected provider's local configuration. Codex owns
+        // its credentials inside app-server; TokenEater never reads them.
+        let token: String?
+        switch provider {
+        case .claude:
+            token = tokenProvider.currentToken()
+            guard token != nil else {
+                hasConfig = false
+                errorState = .tokenUnavailable
+                return
+            }
+        case .codex:
+            token = nil
+            guard codexUsageService.isCodexInstalled() else {
+                hasConfig = false
+                errorState = .tokenUnavailable
+                return
+            }
         }
         hasConfig = true
 
@@ -155,8 +182,22 @@ final class UsageStore: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let usage = try await repository.refreshUsage(token: token, proxyConfig: proxyConfig)
-            applySuccess(usage: usage)
+            switch provider {
+            case .claude:
+                guard let token else { return }
+                let usage = try await repository.refreshUsage(token: token, proxyConfig: proxyConfig)
+                applySuccess(usage: usage)
+            case .codex:
+                let snapshot = try await codexUsageService.fetchUsage()
+                planType = snapshot.planType
+                rateLimitTier = nil
+                organizationName = nil
+                sharedFileService.updateAfterSync(
+                    usage: CachedUsage(usage: snapshot.usage, fetchDate: Date(), provider: .codex),
+                    syncDate: Date()
+                )
+                applySuccess(usage: snapshot.usage)
+            }
         } catch let error as APIError {
             lastAPIError = error.diagnosticSnapshot
             switch error {
@@ -164,7 +205,8 @@ final class UsageStore: ObservableObject {
                 // Invalidate cached token so next read re-checks Keychain for a fresh one
                 tokenProvider.invalidateToken()
                 // Retry once with a fresh token
-                if let freshToken = tokenProvider.currentToken(), freshToken != token {
+                if let token,
+                   let freshToken = tokenProvider.currentToken(), freshToken != token {
                     do {
                         let usage = try await repository.refreshUsage(token: freshToken, proxyConfig: proxyConfig)
                         applySuccess(usage: usage)
@@ -199,14 +241,24 @@ final class UsageStore: ObservableObject {
                 errorState = .networkError
             }
         } catch {
+            if let codexError = error as? CodexUsageServiceError {
+                switch codexError {
+                case .executableNotFound, .notAuthenticated, .unsupportedAuthentication:
+                    hasConfig = false
+                    errorState = .tokenUnavailable
+                case .appServerUnavailable, .invalidResponse, .timedOut:
+                    errorState = .networkError
+                }
+            } else {
+                errorState = .networkError
+            }
             lastAPIError = LastAPIError(
                 httpStatusCode: nil,
                 retryAfterHeader: nil,
-                endpoint: "(unknown)",
+                endpoint: provider == .codex ? "codex app-server" : "(unknown)",
                 timestamp: Date(),
                 underlyingError: error.localizedDescription
             )
-            errorState = .networkError
         }
     }
 
@@ -226,6 +278,7 @@ final class UsageStore: ObservableObject {
     /// Invalidates the cached token so the next refresh reads a fresh one,
     /// and clears the rate-limit backoff so the refresh actually fires.
     func handleTokenChange() {
+        guard provider == .claude else { return }
         tokenProvider.invalidateToken()
         retryAfterDate = nil
         switchToFastMode()
@@ -241,6 +294,7 @@ final class UsageStore: ObservableObject {
     /// re-fetch, and switch to fast mode so the new account's data shows up
     /// promptly. Returns true when the caller should force a usage refresh.
     func reconcileTokenIfChanged() -> Bool {
+        guard provider == .claude else { return false }
         guard tokenProvider.refreshTokenIfChanged() else { return false }
         retryAfterDate = nil
         consecutiveRateLimits = 0
@@ -257,9 +311,13 @@ final class UsageStore: ObservableObject {
     }
 
     func reloadConfig(thresholds: UsageThresholds = .default) {
-        let token = tokenProvider.currentToken()
-        hasConfig = token != nil
-        errorState = token != nil ? .none : .tokenUnavailable
+        switch provider {
+        case .claude:
+            hasConfig = tokenProvider.currentToken() != nil
+        case .codex:
+            hasConfig = codexUsageService.isCodexInstalled()
+        }
+        errorState = hasConfig ? .none : .tokenUnavailable
         loadCached()
         notificationService.requestPermission()
         WidgetReloader.scheduleReload()
@@ -304,11 +362,16 @@ final class UsageStore: ObservableObject {
     }
 
     func testConnection() async -> ConnectionTestResult {
-        guard let token = tokenProvider.currentToken() else {
-            return ConnectionTestResult(success: false, message: String(localized: "error.notoken"))
-        }
         do {
-            _ = try await repository.testConnection(token: token, proxyConfig: proxyConfig)
+            switch provider {
+            case .claude:
+                guard let token = tokenProvider.currentToken() else {
+                    return ConnectionTestResult(success: false, message: String(localized: "error.notoken"))
+                }
+                _ = try await repository.testConnection(token: token, proxyConfig: proxyConfig)
+            case .codex:
+                _ = try await codexUsageService.fetchUsage()
+            }
             return ConnectionTestResult(success: true, message: "OK")
         } catch {
             return ConnectionTestResult(success: false, message: error.localizedDescription)
@@ -316,11 +379,17 @@ final class UsageStore: ObservableObject {
     }
 
     func connectAutoDetect() async -> ConnectionTestResult {
-        guard let token = tokenProvider.currentToken() else {
-            return ConnectionTestResult(success: false, message: String(localized: "error.notoken"))
-        }
         do {
-            _ = try await repository.testConnection(token: token, proxyConfig: proxyConfig)
+            switch provider {
+            case .claude:
+                guard let token = tokenProvider.currentToken() else {
+                    return ConnectionTestResult(success: false, message: String(localized: "error.notoken"))
+                }
+                _ = try await repository.testConnection(token: token, proxyConfig: proxyConfig)
+            case .codex:
+                let snapshot = try await codexUsageService.fetchUsage()
+                planType = snapshot.planType
+            }
             hasConfig = true
             return ConnectionTestResult(success: true, message: "OK")
         } catch {
@@ -331,6 +400,7 @@ final class UsageStore: ObservableObject {
     private var lastProfileFetch: Date?
 
     func refreshProfile() async {
+        guard provider == .claude else { return }
         guard let token = tokenProvider.currentToken() else { return }
         // Throttle: profile rarely changes, skip if fetched less than 5min ago
         if let last = lastProfileFetch, Date().timeIntervalSince(last) < 300 { return }
@@ -468,5 +538,39 @@ final class UsageStore: ObservableObject {
         }
         fiveHourPacing = allPacing[.fiveHour]
         sonnetPacing = allPacing[.sonnet]
+    }
+
+    private func clearForProviderChange() {
+        refreshTask?.cancel()
+        lastUsage = nil
+        lastUpdate = nil
+        lastAPIError = nil
+        errorState = .none
+        hasConfig = false
+        planType = .unknown
+        rateLimitTier = nil
+        organizationName = nil
+        fiveHourPct = 0
+        sevenDayPct = 0
+        sonnetPct = 0
+        opusPct = 0
+        coworkPct = 0
+        fablePct = 0
+        oauthAppsPct = 0
+        hasOpus = false
+        hasCowork = false
+        hasFable = false
+        extraUsage = nil
+        fiveHourReset = ""
+        fiveHourResetAbsolute = ""
+        sevenDayReset = ""
+        sevenDayResetAbsolute = ""
+        sonnetReset = ""
+        sonnetResetAbsolute = ""
+        fableReset = ""
+        fableResetAbsolute = ""
+        applyPacing([:])
+        retryAfterDate = nil
+        consecutiveRateLimits = 0
     }
 }

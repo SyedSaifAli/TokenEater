@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// First card - gates the onboarding. Auto-checks for the `claude` CLI on
+/// First card - gates the onboarding. Auto-checks for the selected CLI on
 /// appear; renders the appropriate scene (terminal preview / install guide
 /// / spinner) and exposes a Retry button when not found.
 struct ClaudeCodeCard: View {
@@ -12,7 +12,7 @@ struct ClaudeCodeCard: View {
         OnboardingCard(
             kind: .required,
             tilt: .left,
-            title: "onboarding.card.claudecode.title",
+            title: title,
             statusText: statusText,
             statusColor: statusColor,
             accent: accent,
@@ -64,9 +64,11 @@ struct ClaudeCodeCard: View {
                 HStack(spacing: 4) {
                     Text("~/proj").foregroundStyle(accent)
                     Text("$").foregroundStyle(.white.opacity(0.4))
-                    Text("claude --version").foregroundStyle(.white)
+                    Text(viewModel.provider == .codex ? "codex --version" : "claude --version")
+                        .foregroundStyle(.white)
                 }
-                Text("claude code 2.0.4").foregroundStyle(.white.opacity(0.55))
+                Text(viewModel.provider == .codex ? "codex-cli 0.146.1" : "claude code 2.0.4")
+                    .foregroundStyle(.white.opacity(0.55))
                 HStack(spacing: 4) {
                     Text("\u{2713} ready").foregroundStyle(accent)
                 }
@@ -91,9 +93,15 @@ struct ClaudeCodeCard: View {
 
     private var installGuide: some View {
         VStack(alignment: .leading, spacing: 6) {
-            stepRow(1, key: "onboarding.card.claudecode.notfound.step1")
-            stepRow(2, key: "onboarding.card.claudecode.notfound.step2")
-            stepRow(3, key: "onboarding.card.claudecode.notfound.step3")
+            if viewModel.provider == .codex {
+                stepRow(1, key: "onboarding.card.codex.notfound.step1")
+                stepRow(2, key: "onboarding.card.codex.notfound.step2")
+                stepRow(3, key: "onboarding.card.codex.notfound.step3")
+            } else {
+                stepRow(1, key: "onboarding.card.claudecode.notfound.step1")
+                stepRow(2, key: "onboarding.card.claudecode.notfound.step2")
+                stepRow(3, key: "onboarding.card.claudecode.notfound.step3")
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
@@ -138,6 +146,12 @@ struct ClaudeCodeCard: View {
         case .detected: return "onboarding.card.claudecode.status.detected"
         case .notFound: return "onboarding.card.claudecode.status.notfound"
         }
+    }
+
+    private var title: LocalizedStringResource {
+        viewModel.provider == .codex
+            ? "onboarding.card.codex.title"
+            : "onboarding.card.claudecode.title"
     }
 
     private var statusColor: Color {

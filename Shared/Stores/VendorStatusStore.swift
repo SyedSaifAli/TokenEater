@@ -23,7 +23,7 @@ final class VendorStatusStore: ObservableObject {
 
     private let statusService: StatusServiceProtocol
     private let notificationService: NotificationServiceProtocol
-    private let monitoredVendors: [Vendor]
+    private var monitoredVendors: [Vendor]
     private var pollTask: Task<Void, Never>?
 
     init(
@@ -41,6 +41,7 @@ final class VendorStatusStore: ObservableObject {
     var worstHealth: VendorHealth { statuses.values.map(\.health).max() ?? .healthy }
     var isDegraded: Bool { worstHealth != .healthy }
     var claudeStatus: VendorStatus? { statuses[.claude] }
+    var activeStatus: VendorStatus? { monitoredVendors.first.flatMap { statuses[$0] } }
 
     static func pollInterval(forHealth health: VendorHealth, healthyInterval: TimeInterval) -> TimeInterval {
         health == .healthy ? healthyInterval : outagePollInterval
@@ -66,6 +67,15 @@ final class VendorStatusStore: ObservableObject {
         pollTask = nil
         nextPollDate = nil
         statuses = [:]
+    }
+
+    /// Switch outage monitoring alongside the selected usage provider.
+    func setVendor(_ vendor: Vendor) {
+        guard monitoredVendors != [vendor] else { return }
+        let wasRunning = pollTask != nil
+        stop()
+        monitoredVendors = [vendor]
+        if wasRunning { start() }
     }
 
     // MARK: - Poll

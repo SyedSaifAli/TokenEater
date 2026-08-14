@@ -27,6 +27,14 @@ enum NotificationStatus {
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
+    @Published var provider: UsageProvider {
+        didSet {
+            guard provider != oldValue else { return }
+            provider.persist()
+            connectionStatus = .idle
+            checkClaudeCode()
+        }
+    }
     @Published var claudeCodeStatus: ClaudeCodeStatus = .checking
     @Published var connectionStatus: ConnectionStatus = .idle
     @Published var notificationStatus: NotificationStatus = .unknown
@@ -44,17 +52,22 @@ final class OnboardingViewModel: ObservableObject {
 
     private let tokenProvider: TokenProviderProtocol
     private let repository: UsageRepositoryProtocol
+    private let codexUsageService: CodexUsageServiceProtocol
     private let notificationService: NotificationServiceProtocol
     private let settingsStore: SettingsStore
 
     init(
+        provider: UsageProvider = .claude,
         tokenProvider: TokenProviderProtocol = TokenProvider(),
         repository: UsageRepositoryProtocol = UsageRepository(),
+        codexUsageService: CodexUsageServiceProtocol = CodexUsageService(),
         notificationService: NotificationServiceProtocol = NotificationService(),
         settingsStore: SettingsStore? = nil
     ) {
+        self.provider = provider
         self.tokenProvider = tokenProvider
         self.repository = repository
+        self.codexUsageService = codexUsageService
         self.notificationService = notificationService
         let store = settingsStore ?? SettingsStore(
             notificationService: notificationService,
@@ -65,7 +78,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     /// Whether the user might see a Keychain dialog (first connection attempt)
-    var needsBootstrap: Bool { tokenProvider.currentToken() == nil }
+    var needsBootstrap: Bool { provider == .claude && tokenProvider.currentToken() == nil }
 
     /// Gating rule for the Finish button. Both required cards must succeed:
     /// Claude Code detected AND Connect connected (rateLimited counts as
@@ -111,9 +124,14 @@ final class OnboardingViewModel: ObservableObject {
         // watchdog timeout on macOS 26 (see #217). Running it on the main thread
         // froze onboarding and left the menu-bar item stuck.
         let provider = tokenProvider
+        let codexService = codexUsageService
+        let selectedProvider = self.provider
         DispatchQueue.global(qos: .userInitiated).async {
-            let hasSource = provider.hasTokenSource()
+            let hasSource = selectedProvider == .claude
+                ? provider.hasTokenSource()
+                : codexService.isCodexInstalled()
             DispatchQueue.main.async { [weak self] in
+                guard self?.provider == selectedProvider else { return }
                 self?.claudeCodeStatus = hasSource ? .detected : .notFound
             }
         }
@@ -150,7 +168,21 @@ final class OnboardingViewModel: ObservableObject {
         connectionStatus = .connecting
 
         let provider = tokenProvider
+        let selectedProvider = self.provider
         Task {
+            if selectedProvider == .codex {
+                do {
+                    let snapshot = try await codexUsageService.fetchUsage()
+                    guard self.provider == selectedProvider else { return }
+                    connectionStatus = .success(snapshot.usage)
+                } catch {
+                    guard self.provider == selectedProvider else { return }
+                    connectionStatus = .failed(error.localizedDescription)
+                }
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+
             // Resolve the token OFF the main thread - currentToken() may shell
             // out to /usr/bin/security, which can block on macOS 26 (see #217).
             // Only silent sources are used, so this never surfaces a Keychain
@@ -191,6 +223,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func completeOnboarding() {
+        provider.persist()
         WidgetReloader.scheduleReload()
     }
 }

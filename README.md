@@ -5,7 +5,7 @@
 <h1 align="center">TokenEater</h1>
 
 <p align="center">
-  <strong>Monitor your Claude AI usage limits directly from your macOS desktop.</strong>
+  <strong>Monitor your Claude or Codex usage limits directly from your macOS desktop.</strong>
   <br>
   <a href="https://tokeneater.vercel.app">Website</a> · <a href="https://tokeneater.vercel.app/en/docs">Docs</a> · <a href="https://github.com/AThevon/TokenEater/releases/latest">Download</a>
 </p>
@@ -15,6 +15,7 @@
   <img src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white" alt="Swift 5.9">
   <img src="https://img.shields.io/badge/WidgetKit-native-007AFF?logo=apple&logoColor=white" alt="WidgetKit">
   <img src="https://img.shields.io/badge/Claude-Pro%20%2F%20Max%20%2F%20Team-D97706" alt="Claude Pro / Max / Team">
+  <img src="https://img.shields.io/badge/Codex-ChatGPT%20plans-10A37F" alt="Codex with ChatGPT sign-in">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
   <img src="https://img.shields.io/github/v/release/AThevon/TokenEater?color=F97316" alt="Release">
   <a href="https://buymeacoffee.com/athevon"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee"></a>
@@ -22,17 +23,17 @@
 
 ---
 
-> **Requires a Claude Pro, Max, or Team plan.** The free plan does not expose usage data.
+> Select either **Claude** or **Codex** during setup. Claude requires a plan that exposes usage data; Codex requires the Codex CLI signed in with ChatGPT (API-key-only login does not have ChatGPT plan-limit windows).
 
 ## What is TokenEater?
 
-A native macOS menu bar app + desktop widgets + floating overlay that tracks your Claude AI usage in real-time.
+A native macOS menu bar app + desktop widgets that tracks Claude or Codex usage in real time. Switch the active usage source at any time in Settings.
 
 - **Menu bar** — Live percentages, color-coded thresholds, and a fully composable popover dashboard: build it element by element (rings, chips, arcs, pacing bars... at full, half, or third width), start from built-in templates (Classic / Compact / Focus / Minimalist and more), and save your own.
 - **Dashboard** — Three-space layout (Monitoring / History / Settings) with flippable tiles surfacing 7d sparklines, peak day, and a pacing-vs-equilibrium graph.
-- **History** — Tokens-over-time browser sourced from Claude Code's local JSONL logs. Filter by model family (Opus / Sonnet / Haiku), switch range (24h / 7d / 30d / 90d), hover bars for daily breakdown, identify your heaviest day and top project at a glance.
+- **History (Claude)** — Tokens-over-time browser sourced from Claude Code's local JSONL logs. Filter by model family (Opus / Sonnet / Haiku), switch range (24h / 7d / 30d / 90d), hover bars for daily breakdown, identify your heaviest day and top project at a glance.
 - **Widgets** — Native WidgetKit widgets (usage gauges, progress bars, pacing) with reactive refresh.
-- **Agent Watchers** — Floating overlay showing active Claude Code sessions with dock-like hover effect. Click to jump to the right terminal (Terminal.app, iTerm2, tmux, Kitty, WezTerm). Frost or Neon style, with per-session context fraction.
+- **Agent Watchers (Claude)** — Floating overlay showing active Claude Code sessions with dock-like hover effect. Click to jump to the right terminal (Terminal.app, iTerm2, tmux, Kitty, WezTerm). Frost or Neon style, with per-session context fraction.
 - **Smart Color** — Risk-aware coloring that combines absolute usage, projection rate, and pacing into a continuous risk score with early-window confidence damping. Three temperaments (Confident / Balanced / Suspicious) to dial sensitivity to your appetite for risk.
 - **Smart pacing** — Are you burning through tokens or cruising? Four zones: chill, on track, warning, hot.
 - **Themes** — 4 presets + full custom colors. Configurable warning/critical thresholds.
@@ -60,7 +61,10 @@ brew install --cask tokeneater
 
 ### First Setup
 
-**Prerequisites:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated (`claude` then `/login`). Requires a **Pro, Max, or Team plan**.
+**Prerequisites — choose one:**
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated (`claude`, then `/login`), with a plan that exposes usage data.
+- [Codex CLI](https://developers.openai.com/codex/cli/) installed and authenticated with ChatGPT (`codex login`).
 
 1. Open TokenEater — a guided setup walks you through connecting your account
 2. Right-click on desktop > **Edit Widgets** > search "TokenEater"
@@ -109,9 +113,11 @@ Shared/                  Shared code (services, stores, models, pacing)
   └── Helpers/           Pure functions (PacingCalculator, MenuBarRenderer, JSONLParser, SmartColor)
 ```
 
-The app reads Claude Code's OAuth token silently from the macOS Keychain (`kSecUseAuthenticationUISkip`), calls the Anthropic usage API, and writes results to a shared JSON file. A `TokenFileMonitor` watches the credential files with a `DispatchSource` filesystem watcher and triggers immediate refresh. The widget reads the shared file — it never touches the network or Keychain. The Agent Watchers overlay scans running Claude Code processes every 2s using macOS system APIs and tail-reads their JSONL logs.
+For Claude, the app reads Claude Code's OAuth token silently from the macOS Keychain (`kSecUseAuthenticationUISkip`) and calls the Anthropic usage API. For Codex, it starts the local `codex app-server` and calls `account/rateLimits/read`; Codex retains ownership of authentication and token refresh, so TokenEater never reads the OpenAI token. Both paths write the provider-tagged result to the shared JSON cache. The widget reads that file only — it never touches the network, Keychain, or Codex credentials.
 
 ## How it works
+
+Claude:
 
 ```
 GET https://api.anthropic.com/api/oauth/usage
@@ -121,7 +127,17 @@ anthropic-beta: oauth-2025-04-20
 
 Returns `utilization` (0–100) and `resets_at` for each limit bucket.
 
+Codex uses the official local app-server JSON-RPC surface:
+
+```json
+{ "method": "account/rateLimits/read", "id": 2 }
+```
+
+TokenEater maps `usedPercent`, `windowDurationMins`, and `resetsAt` into the same provider-neutral gauges and pacing calculations. A response may contain only a weekly window; unavailable gauges are omitted.
+
 ## Security & Privacy
+
+### Claude
 
 TokenEater reads an **OAuth access token** from the Claude Code keychain entry - the same standard token that Claude Code itself uses. At first launch, macOS will prompt you to allow this access; this is normal macOS behavior for any app reading a keychain item it didn't create.
 
@@ -135,6 +151,10 @@ The token never leaves your machine except for these two API calls to `api.anthr
 
 Anthropic does not currently offer a third-party OAuth flow or scoped API tokens - reading the existing token from the keychain is the only option. If scoped tokens become available, TokenEater will adopt them immediately. The entire codebase is open source and auditable: keychain access is in [`SecurityCLIReader.swift`](Shared/Services/SecurityCLIReader.swift) (primary) and [`TokenProvider.swift`](Shared/Services/TokenProvider.swift) (Security-framework fallback), API calls in [`APIClient.swift`](Shared/Services/APIClient.swift).
 
+### Codex
+
+TokenEater does **not** read `~/.codex/auth.json`, the macOS Keychain, or any OpenAI access token. It launches the installed Codex CLI's local app-server over stdio, performs the required initialize handshake, and requests only account details and rate limits. The short-lived child process exits after the response. The implementation is in [`CodexUsageService.swift`](Shared/Services/CodexUsageService.swift).
+
 ## Troubleshooting
 
 ### Common issues
@@ -143,6 +163,9 @@ Anthropic does not currently offer a third-party OAuth flow or scoped API tokens
 |---------|-------|-----|
 | "Rate limited" or "API unavailable" | Your OAuth token has hit its per-token request limit | Run `claude /login` in your terminal for a fresh token - TokenEater detects the change and recovers automatically within seconds |
 | Keychain popup asking to access "Claude Code-credentials" | First run on a new install needs to authorize `/usr/bin/security` to read your Claude Code token | Click **Always Allow** once - it sticks across future app updates |
+| "Codex CLI was not found" | Codex is not installed in a standard CLI location | Install Codex, or set `TOKENEATER_CODEX_EXECUTABLE` to its executable path |
+| "Codex is not signed in" | Codex has no active ChatGPT session | Run `codex login`, complete browser sign-in, then retry |
+| API-key-only Codex warning | API-key usage is billed by the API organization and has no ChatGPT plan-limit window | Run `codex login` with ChatGPT to monitor Codex plan limits |
 | Widget stuck / not updating | macOS caches widget extensions aggressively | Remove the widget, run a clean reset, re-add the widget |
 
 ### Clean reset
@@ -200,4 +223,3 @@ If TokenEater saves you from hitting your limits blindly, consider [buying me a 
 ## License
 
 MIT
-

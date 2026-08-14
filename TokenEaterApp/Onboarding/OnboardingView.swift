@@ -8,7 +8,7 @@ import SwiftUI
 /// The chrome (rounded background, modal radius) is provided by the parent
 /// `MainAppView.onboardingContent`; this view stays transparent on top.
 struct OnboardingView: View {
-    @StateObject private var viewModel = OnboardingViewModel()
+    @StateObject private var viewModel = OnboardingViewModel(provider: .persisted)
 
     var body: some View {
         VStack(spacing: 16) {
@@ -32,6 +32,15 @@ struct OnboardingView: View {
                 .foregroundStyle(.white.opacity(0.6))
 
             Spacer()
+
+            Picker("", selection: $viewModel.provider) {
+                ForEach(UsageProvider.allCases) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 170)
         }
     }
 

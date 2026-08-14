@@ -106,7 +106,7 @@ struct MonitoringView: View {
                     )
             }
 
-            if vendorStatusStore.isDegraded, let status = vendorStatusStore.claudeStatus {
+            if vendorStatusStore.isDegraded, let status = vendorStatusStore.activeStatus {
                 statusPill(status)
             }
 
@@ -158,17 +158,20 @@ struct MonitoringView: View {
         .padding(.horizontal, DS.Spacing.xs)
     }
 
-    /// Compact Claude service-status pill, shown inline in the header only when
-    /// Claude is degraded/down. Living in the header (instead of a full-width
+    /// Compact provider service-status pill, shown inline in the header only
+    /// when the selected service is degraded/down. Living in the header (instead of a full-width
     /// card below it) keeps it from adding a row that could push the dashboard
     /// into scrolling. Links to the status page; the incident name is in the
     /// tooltip, and the tint scales orange (degraded) -> red (down).
     @ViewBuilder
     private func statusPill(_ status: VendorStatus) -> some View {
         let tint = status.health == .down ? DS.Palette.semanticError : DS.Palette.semanticWarning
-        let label = status.health == .down
-            ? String(localized: "dashboard.status.down")
-            : String(localized: "dashboard.status.degraded")
+        let label = String(
+            format: status.health == .down
+                ? String(localized: "dashboard.status.vendor.down")
+                : String(localized: "dashboard.status.vendor.degraded"),
+            status.vendor.displayName
+        )
         Link(destination: status.statusPageURL) {
             HStack(spacing: 5) {
                 Circle()
@@ -195,13 +198,24 @@ struct MonitoringView: View {
 
     // MARK: - Hero tile (Session 5H)
 
+    private var usesWeeklyHero: Bool {
+        usageStore.lastUsage?.fiveHour == nil && usageStore.lastUsage?.sevenDay != nil
+    }
+
     private var heroTile: some View {
-        let pct = usageStore.fiveHourPct
-        let resetDate = usageStore.lastUsage?.fiveHour?.resetsAtDate
-        let gaugeColor = gaugeColor(pct: pct, resetDate: resetDate, windowDuration: 5 * 3600)
-        let gaugeGradient = gaugeGradient(pct: pct, resetDate: resetDate, windowDuration: 5 * 3600)
-        let zone = usageStore.fiveHourPacing?.zone
-        let pacing = usageStore.fiveHourPacing
+        let pct = usesWeeklyHero ? usageStore.sevenDayPct : usageStore.fiveHourPct
+        let resetDate = usesWeeklyHero
+            ? usageStore.lastUsage?.sevenDay?.resetsAtDate
+            : usageStore.lastUsage?.fiveHour?.resetsAtDate
+        let windowDuration: TimeInterval = usesWeeklyHero ? 7 * 86_400 : 5 * 3_600
+        let label = usesWeeklyHero
+            ? String(localized: "metric.weekly")
+            : String(localized: "dashboard.hero.session.label")
+        let resetText = usesWeeklyHero ? usageStore.sevenDayReset : usageStore.fiveHourReset
+        let gaugeColor = gaugeColor(pct: pct, resetDate: resetDate, windowDuration: windowDuration)
+        let gaugeGradient = gaugeGradient(pct: pct, resetDate: resetDate, windowDuration: windowDuration)
+        let pacing = usesWeeklyHero ? usageStore.pacingResult : usageStore.fiveHourPacing
+        let zone = pacing?.zone
         // Ambient tint follows the gauge color so the wash, the big
         // number, and the ring all read as a single signal.
         let accent = gaugeColor
@@ -213,6 +227,7 @@ struct MonitoringView: View {
                 if heroFlipped {
                     heroBackContent(
                         gaugeColor: gaugeColor,
+                        label: label,
                         zone: zone,
                         pacing: pacing,
                         resetDate: resetDate
@@ -220,6 +235,9 @@ struct MonitoringView: View {
                 } else {
                     heroFrontContent(
                         pct: pct,
+                        label: label,
+                        resetText: resetText,
+                        resetDate: resetDate,
                         gaugeColor: gaugeColor,
                         gaugeGradient: gaugeGradient,
                         zone: zone
@@ -263,7 +281,15 @@ struct MonitoringView: View {
     }
 
     @ViewBuilder
-    private func heroFrontContent(pct: Int, gaugeColor: Color, gaugeGradient: LinearGradient, zone: PacingZone?) -> some View {
+    private func heroFrontContent(
+        pct: Int,
+        label: String,
+        resetText: String,
+        resetDate: Date?,
+        gaugeColor: Color,
+        gaugeGradient: LinearGradient,
+        zone: PacingZone?
+    ) -> some View {
         HStack(alignment: .center, spacing: DS.Spacing.lg) {
             // Left -> labels + meta
             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -272,7 +298,7 @@ struct MonitoringView: View {
                         .fill(gaugeColor)
                         .frame(width: 6, height: 6)
                         .dsGlow(gaugeColor, radius: 4, opacity: 0.6)
-                    Text(String(localized: "dashboard.hero.session.label").uppercased())
+                    Text(label.uppercased())
                         .font(DS.Typography.micro)
                         .tracking(1.5)
                         .foregroundStyle(DS.Palette.textSecondary)
@@ -300,10 +326,10 @@ struct MonitoringView: View {
                         .font(DS.Typography.micro)
                         .tracking(1.2)
                         .foregroundStyle(DS.Palette.textTertiary)
-                    Text(usageStore.fiveHourReset.isEmpty ? "-" : usageStore.fiveHourReset)
+                    Text(resetText.isEmpty ? "-" : resetText)
                         .font(DS.Typography.metricInline)
                         .foregroundStyle(DS.Palette.textPrimary)
-                    if let resetDate = usageStore.lastUsage?.fiveHour?.resetsAtDate {
+                    if let resetDate {
                         Text("·")
                             .font(DS.Typography.metricInline)
                             .foregroundStyle(DS.Palette.textTertiary.opacity(0.5))
@@ -353,6 +379,7 @@ struct MonitoringView: View {
     @ViewBuilder
     private func heroBackContent(
         gaugeColor: Color,
+        label: String,
         zone: PacingZone?,
         pacing: PacingResult?,
         resetDate: Date?
@@ -364,7 +391,7 @@ struct MonitoringView: View {
                         .fill(gaugeColor)
                         .frame(width: 6, height: 6)
                         .dsGlow(gaugeColor, radius: 4, opacity: 0.6)
-                    Text(String(localized: "dashboard.hero.session.label").uppercased() + " · PACING")
+                    Text(label.uppercased() + " · PACING")
                         .font(DS.Typography.micro)
                         .tracking(1.5)
                         .foregroundStyle(DS.Palette.textSecondary)
@@ -408,41 +435,61 @@ struct MonitoringView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Right column: live session activity. Sessions count is the
-            // headline number; top model fills the line below. Pulls
-            // from SessionStore (kept in sync by the overlay watcher).
-            VStack(alignment: .trailing, spacing: 6) {
-                Text("LIVE")
-                    .font(DS.Typography.micro)
-                    .tracking(1.2)
-                    .foregroundStyle(DS.Palette.textTertiary)
-
-                let count = sessionStore.activeSessions.count
-                Text("\(count)")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(count > 0 ? DS.Palette.textPrimary : DS.Palette.textTertiary)
-                    .monospacedDigit()
-                    .contentTransition(.numericText(value: Double(count)))
-                    .animation(DS.Motion.springLiquid, value: count)
-                Text(count == 1 ? "active session" : "active sessions")
-                    .font(.system(size: 9, weight: .medium))
-                    .tracking(0.8)
-                    .foregroundStyle(DS.Palette.textTertiary)
-                    .textCase(.uppercase)
-
-                if let topModel = sessionStore.topActiveModelName {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(gaugeColor)
-                            .frame(width: 5, height: 5)
-                        Text(topModel)
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(DS.Palette.textSecondary)
+            if usageStore.provider == .codex {
+                VStack(alignment: .trailing, spacing: 7) {
+                    Text("SOURCE")
+                        .font(DS.Typography.micro)
+                        .tracking(1.2)
+                        .foregroundStyle(DS.Palette.textTertiary)
+                    Text("Codex")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(DS.Palette.textPrimary)
+                    Text("LOCAL APP-SERVER")
+                        .font(.system(size: 9, weight: .medium))
+                        .tracking(0.8)
+                        .foregroundStyle(DS.Palette.textTertiary)
+                    if usageStore.planType != .unknown {
+                        Text(usageStore.planType.displayLabel)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(gaugeColor)
                     }
-                    .padding(.top, 2)
                 }
+                .frame(width: 160, height: 160)
+            } else {
+                // Right column: live Claude session activity.
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("LIVE")
+                        .font(DS.Typography.micro)
+                        .tracking(1.2)
+                        .foregroundStyle(DS.Palette.textTertiary)
+
+                    let count = sessionStore.activeSessions.count
+                    Text("\(count)")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(count > 0 ? DS.Palette.textPrimary : DS.Palette.textTertiary)
+                        .monospacedDigit()
+                        .contentTransition(.numericText(value: Double(count)))
+                        .animation(DS.Motion.springLiquid, value: count)
+                    Text(count == 1 ? "active session" : "active sessions")
+                        .font(.system(size: 9, weight: .medium))
+                        .tracking(0.8)
+                        .foregroundStyle(DS.Palette.textTertiary)
+                        .textCase(.uppercase)
+
+                    if let topModel = sessionStore.topActiveModelName {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(gaugeColor)
+                                .frame(width: 5, height: 5)
+                            Text(topModel)
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundStyle(DS.Palette.textSecondary)
+                        }
+                        .padding(.top, 2)
+                    }
+                }
+                .frame(width: 160, height: 160)
             }
-            .frame(width: 160, height: 160)
         }
     }
 
@@ -510,8 +557,9 @@ struct MonitoringView: View {
 
     private var secondaryTiles: [TileDescriptor] {
         let weekWindow: TimeInterval = 7 * 86_400
-        var tiles: [TileDescriptor] = [
-            TileDescriptor(
+        var tiles: [TileDescriptor] = []
+        if usageStore.lastUsage?.sevenDay != nil && !usesWeeklyHero {
+            tiles.append(TileDescriptor(
                 id: "weekly",
                 label: String(localized: "metric.weekly"),
                 icon: "calendar",
@@ -519,8 +567,10 @@ struct MonitoringView: View {
                 resetText: usageStore.sevenDayReset,
                 resetDate: usageStore.lastUsage?.sevenDay?.resetsAtDate,
                 windowDuration: weekWindow
-            ),
-            TileDescriptor(
+            ))
+        }
+        if usageStore.lastUsage?.sevenDaySonnet != nil {
+            tiles.append(TileDescriptor(
                 id: "sonnet",
                 label: String(localized: "metric.sonnet"),
                 icon: "text.quote",
@@ -528,8 +578,8 @@ struct MonitoringView: View {
                 resetText: usageStore.sonnetReset.isEmpty ? nil : usageStore.sonnetReset,
                 resetDate: usageStore.lastUsage?.sevenDaySonnet?.resetsAtDate,
                 windowDuration: weekWindow
-            )
-        ]
+            ))
+        }
         if usageStore.hasOpus {
             tiles.append(TileDescriptor(
                 id: "opus",
@@ -852,5 +902,3 @@ struct MonitoringView: View {
         }
     }
 }
-
-

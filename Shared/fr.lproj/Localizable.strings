@@ -40,8 +40,8 @@
 "widget.updated" = "Maj %@";
 "widget.refresh.interval" = "15 min";
 "widget.refresh.button" = "Rafraîchir";
-"widget.description.usage" = "Affiche votre consommation Claude en temps réel";
-"widget.description.pacing" = "Votre rythme de consommation Claude";
+"widget.description.usage" = "Affiche la consommation de l'IA sélectionnée en temps réel";
+"widget.description.pacing" = "Votre rythme de consommation de l'IA sélectionnée";
 "widget.title.sessionRing" = "Session Ring";
 "widget.description.sessionRing" = "Grosse jauge en anneau pour votre fenêtre 5h, en Smart Color";
 "widget.title.pacingGraph" = "Graphique de pacing";
@@ -66,7 +66,7 @@
 "widget.history.empty.body" = "Ouvrez TokenEater pour qu'il indexe vos sessions";
 
 /* Settings */
-"settings.subtitle" = "Surveillez votre consommation Claude";
+"settings.subtitle" = "Surveillez votre consommation Claude ou Codex";
 "settings.test" = "Tester";
 "settings.refresh" = "Rafraîchir";
 "settings.refresh.title" = "Rafraîchissement";
@@ -340,6 +340,7 @@
 "settings.notifications.group.health" = "Santé";
 "settings.notifications.group.health.hint" = "Soucis de connexion qui peuvent bloquer le suivi.";
 "settings.notifications.token" = "Token expiré";
+"settings.notifications.codex.auth" = "Connexion à Codex requise";
 "settings.notifications.status.degraded" = "Service dégradé";
 "settings.notifications.status.restored" = "Service rétabli";
 
@@ -824,6 +825,10 @@
 "onboarding.card.claudecode.notfound.step2" = "connecte-toi : lance claude";
 "onboarding.card.claudecode.notfound.step3" = "reviens ici, clique Réessayer";
 "onboarding.card.claudecode.retry" = "Réessayer";
+"onboarding.card.codex.title" = "Codex CLI";
+"onboarding.card.codex.notfound.step1" = "installe : npm install -g @openai/codex";
+"onboarding.card.codex.notfound.step2" = "connecte-toi : codex login";
+"onboarding.card.codex.notfound.step3" = "reviens ici, clique Réessayer";
 
 /* Card 2 - Notifications */
 "onboarding.card.notifications.title" = "Notifications";
@@ -852,16 +857,37 @@
 "onboarding.card.connect.authorize" = "Autoriser";
 "onboarding.card.connect.retry" = "Réessayer";
 "onboarding.card.connect.idle.scene" = "macOS demande une fois.\nClique Toujours autoriser quand ça apparaît.";
+"onboarding.card.connect.codex.title" = "Connecter Codex";
+"onboarding.card.connect.codex.idle.scene" = "Utilise l'app-server local de Codex.\nTon token OpenAI reste dans Codex.";
+"onboarding.card.connect.codex.connect" = "Connecter";
 
 /* Vendor Status Banner */
 "status.banner.degraded" = "Claude est dégradé";
 "status.banner.down" = "Claude est hors service";
 "status.banner.view" = "État du service";
+"status.banner.vendor.degraded" = "%@ est dégradé";
+"status.banner.vendor.down" = "%@ est hors service";
 
 /* Vendor Status Dashboard Card */
 "dashboard.status.degraded" = "Claude est dégradé";
 "dashboard.status.down" = "Claude est hors service";
 "dashboard.status.affected" = "Concerné : %@";
+"dashboard.status.vendor.degraded" = "%@ est dégradé";
+"dashboard.status.vendor.down" = "%@ est hors service";
+
+/* Fournisseur Codex */
+"settings.provider.label" = "Source d'utilisation";
+"settings.provider.claude.hint" = "Lit l'API d'utilisation OAuth de Claude Code via le flux silencieux existant.";
+"settings.provider.codex.hint" = "Lit les limites du forfait ChatGPT via l'app-server local officiel de Codex. TokenEater ne lit jamais ton token OpenAI.";
+"settings.status.provider.subtitle" = "Surveillance des pannes de %@";
+"connect.codex.success" = "Connecté via Codex";
+"error.banner.codex.signin" = "Lance codex login, puis réessaie";
+"notif.title.status.openai.degraded" = "Codex est dégradé";
+"notif.body.status.openai.degraded" = "OpenAI signale un incident Codex";
+"notif.title.status.openai.down" = "Codex est hors service";
+"notif.body.status.openai.down" = "OpenAI signale une panne majeure de Codex";
+"notif.title.status.openai.restored" = "Codex est rétabli";
+"notif.body.status.openai.restored" = "Service rétabli";
 
 /* Fable (limite hebdomadaire Claude Fable) */
 "metric.fable" = "Fable";

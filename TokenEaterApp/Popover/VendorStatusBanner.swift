@@ -6,7 +6,7 @@ struct VendorStatusBanner: View {
     @EnvironmentObject private var vendorStatusStore: VendorStatusStore
 
     var body: some View {
-        if vendorStatusStore.isDegraded, let status = vendorStatusStore.claudeStatus {
+        if vendorStatusStore.isDegraded, let status = vendorStatusStore.activeStatus {
             content(for: status)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
@@ -28,7 +28,7 @@ struct VendorStatusBanner: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(tint(status.health))
-                Text(headline(for: status.health))
+                Text(headline(for: status))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
                 Spacer(minLength: 8)
@@ -45,9 +45,10 @@ struct VendorStatusBanner: View {
         }
     }
 
-    private func headline(for health: VendorHealth) -> String {
-        health == .down
-            ? String(localized: "status.banner.down")
-            : String(localized: "status.banner.degraded")
+    private func headline(for status: VendorStatus) -> String {
+        let format = status.health == .down
+            ? String(localized: "status.banner.vendor.down")
+            : String(localized: "status.banner.vendor.degraded")
+        return String(format: format, status.vendor.displayName)
     }
 }

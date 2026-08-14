@@ -3,12 +3,14 @@ import Foundation
 /// A monitored service provider
 enum Vendor: String, Codable, CaseIterable, Identifiable, Sendable {
     case claude
+    case openAI = "openai"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .claude: return "Claude"
+        case .openAI: return "Codex"
         }
     }
 
@@ -17,12 +19,14 @@ enum Vendor: String, Codable, CaseIterable, Identifiable, Sendable {
     var statusAPIBaseURL: URL {
         switch self {
         case .claude: return URL(string: "https://status.claude.com/api/v2")!
+        case .openAI: return URL(string: "https://status.openai.com/api/v2")!
         }
     }
 
     var statusPageURL: URL {
         switch self {
         case .claude: return URL(string: "https://status.claude.com")!
+        case .openAI: return URL(string: "https://status.openai.com")!
         }
     }
 
@@ -31,6 +35,7 @@ enum Vendor: String, Codable, CaseIterable, Identifiable, Sendable {
     var relevantComponentMatches: [String] {
         switch self {
         case .claude: return ["Claude Code", "api.anthropic.com"]
+        case .openAI: return ["Codex in ChatGPT Desktop", "Responses", "Login"]
         }
     }
 }

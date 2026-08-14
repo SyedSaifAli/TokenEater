@@ -6,6 +6,7 @@ import SwiftUI
 /// toggle per event.
 struct NotificationsSectionView: View {
     @EnvironmentObject private var settingsStore: SettingsStore
+    @EnvironmentObject private var usageStore: UsageStore
 
     @State private var notifTestCooldown = false
 
@@ -32,7 +33,9 @@ struct NotificationsSectionView: View {
             usageCard
             pacingCard
             resetRemindersCard
-            extraCreditsCard
+            if usageStore.provider == .claude {
+                extraCreditsCard
+            }
             healthCard
 
             ResetSectionButton(
@@ -141,8 +144,10 @@ struct NotificationsSectionView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 darkToggle(String(localized: "settings.notifications.track.fivehour"), isOn: $settingsStore.notification.trackFiveHour)
                 darkToggle(String(localized: "settings.notifications.track.weekly"), isOn: $settingsStore.notification.trackWeekly)
-                darkToggle(String(localized: "settings.notifications.track.sonnet"), isOn: $settingsStore.notification.trackSonnet)
-                darkToggle(String(localized: "settings.notifications.track.fable"), isOn: $settingsStore.notification.trackFable)
+                if usageStore.provider == .claude {
+                    darkToggle(String(localized: "settings.notifications.track.sonnet"), isOn: $settingsStore.notification.trackSonnet)
+                    darkToggle(String(localized: "settings.notifications.track.fable"), isOn: $settingsStore.notification.trackFable)
+                }
                 Divider().padding(.vertical, 2)
                 darkToggle(String(localized: "settings.notifications.recovery"), isOn: $settingsStore.notification.sendRecovery)
                 Text(String(localized: "settings.notifications.recovery.hint"))
@@ -245,11 +250,15 @@ struct NotificationsSectionView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.4))
                     .fixedSize(horizontal: false, vertical: true)
-                darkToggle(String(localized: "settings.notifications.token"), isOn: $settingsStore.notification.tokenExpired)
+                darkToggle(
+                    usageStore.provider == .codex
+                        ? String(localized: "settings.notifications.codex.auth")
+                        : String(localized: "settings.notifications.token"),
+                    isOn: $settingsStore.notification.tokenExpired
+                )
                 darkToggle(String(localized: "settings.notifications.status.degraded"), isOn: $settingsStore.notification.vendorDegraded)
                 darkToggle(String(localized: "settings.notifications.status.restored"), isOn: $settingsStore.notification.vendorRestored)
             }
         }
     }
 }
-

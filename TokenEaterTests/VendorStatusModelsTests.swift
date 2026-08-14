@@ -27,4 +27,12 @@ struct VendorStatusModelsTests {
         #expect(Vendor.claude.statusPageURL.absoluteString == "https://status.claude.com")
         #expect(Vendor.claude.displayName == "Claude")
     }
+
+    @Test("OpenAI vendor exposes Codex status components")
+    func openAIURLs() {
+        #expect(Vendor.openAI.statusAPIBaseURL.absoluteString == "https://status.openai.com/api/v2")
+        #expect(Vendor.openAI.statusPageURL.absoluteString == "https://status.openai.com")
+        #expect(Vendor.openAI.displayName == "Codex")
+        #expect(Vendor.openAI.relevantComponentMatches.contains("Codex in ChatGPT Desktop"))
+    }
 }

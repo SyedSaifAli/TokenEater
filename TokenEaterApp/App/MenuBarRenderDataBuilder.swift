@@ -34,6 +34,8 @@ extension MenuBarRenderer.RenderData {
             sevenDayResetDate: usage.lastUsage?.sevenDay?.resetsAtDate,
             sonnetResetDate: usage.lastUsage?.sevenDaySonnet?.resetsAtDate,
             hasFiveHourBucket: usage.lastUsage?.fiveHour != nil,
+            hasSevenDayBucket: usage.lastUsage?.sevenDay != nil,
+            hasSonnetBucket: usage.lastUsage?.sevenDaySonnet != nil,
             resetTextColorHex: settings.resetTextColorHex,
             sessionPeriodColorHex: settings.sessionPeriodColorHex,
             smartResetColor: settings.smartColorEnabled,

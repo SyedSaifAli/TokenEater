@@ -34,6 +34,8 @@ enum MenuBarRenderer {
         /// two 5h windows. Used to keep session segments visible (with a
         /// placeholder value) instead of hiding them whenever there's a lull.
         let hasFiveHourBucket: Bool
+        let hasSevenDayBucket: Bool
+        let hasSonnetBucket: Bool
         let resetTextColorHex: String
         let sessionPeriodColorHex: String
         let smartResetColor: Bool
@@ -348,7 +350,9 @@ enum MenuBarRenderer {
         switch kind {
         case .fable: return data.hasFable
         case .extraCredits: return data.hasExtraCredits
-        case .sessionReset, .sessionPacing: return data.hasFiveHourBucket
+        case .session, .sessionReset, .sessionPacing: return data.hasFiveHourBucket
+        case .weekly: return data.hasSevenDayBucket
+        case .sonnet: return data.hasSonnetBucket
         case .weeklyPacing: return data.hasWeeklyPacing
         default: return true
         }

@@ -31,6 +31,29 @@ struct SettingsSectionView: View {
             glassCard {
                 VStack(alignment: .leading, spacing: 10) {
                     cardLabel(String(localized: "settings.tab.connection"))
+                    HStack(spacing: 12) {
+                        Text(String(localized: "settings.provider.label"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.7))
+                        Spacer()
+                        Picker("", selection: $usageStore.provider) {
+                            ForEach(UsageProvider.allCases) { provider in
+                                Text(provider.displayName).tag(provider)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 180)
+                    }
+                    Text(usageStore.provider == .codex
+                         ? String(localized: "settings.provider.codex.hint")
+                         : String(localized: "settings.provider.claude.hint"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Divider().opacity(0.12)
+
                     HStack(spacing: 8) {
                         Circle()
                             .fill(usageStore.hasConfig && !usageStore.isDisconnected ? Color.green : Color.red)
@@ -177,29 +200,32 @@ struct SettingsSectionView: View {
                 }
             }
 
-            // Proxy
-            glassCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    cardLabel(String(localized: "settings.tab.proxy"))
-                    darkToggle(String(localized: "settings.proxy.toggle"), isOn: $settingsStore.proxyEnabled)
-                    if settingsStore.proxyEnabled {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(String(localized: "settings.proxy.host"))
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.white.opacity(0.4))
-                                TextField("127.0.0.1", text: $settingsStore.proxyHost)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 12, design: .monospaced))
-                            }
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(String(localized: "settings.proxy.port"))
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.white.opacity(0.4))
-                                TextField("1080", value: $settingsStore.proxyPort, format: .number)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .frame(width: 80)
+            // The built-in proxy belongs to the direct Anthropic API path.
+            // Codex app-server owns its own networking and proxy configuration.
+            if usageStore.provider == .claude {
+                glassCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        cardLabel(String(localized: "settings.tab.proxy"))
+                        darkToggle(String(localized: "settings.proxy.toggle"), isOn: $settingsStore.proxyEnabled)
+                        if settingsStore.proxyEnabled {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(String(localized: "settings.proxy.host"))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                    TextField("127.0.0.1", text: $settingsStore.proxyHost)
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.system(size: 12, design: .monospaced))
+                                }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(String(localized: "settings.proxy.port"))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                    TextField("1080", value: $settingsStore.proxyPort, format: .number)
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .frame(width: 80)
+                                }
                             }
                         }
                     }
@@ -248,7 +274,10 @@ struct SettingsSectionView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     cardLabel(String(localized: "sidebar.serviceStatus"))
                     darkToggle(String(localized: "settings.status.master"), isOn: $settingsStore.outageMonitoringEnabled)
-                    Text(String(localized: "sidebar.serviceStatus.subtitle"))
+                    Text(String(
+                        format: String(localized: "settings.status.provider.subtitle"),
+                        usageStore.provider.displayName
+                    ))
                         .font(.system(size: 11))
                         .foregroundStyle(.white.opacity(0.4))
                         .fixedSize(horizontal: false, vertical: true)
@@ -311,6 +340,12 @@ struct SettingsSectionView: View {
         .onChange(of: settingsStore.statusPollInterval) { _, v in
             if Int(statusPollIntervalSeconds) != v { statusPollIntervalSeconds = Double(v) }
         }
+        .onChange(of: usageStore.provider) { _, _ in
+            testResult = nil
+            importMessage = nil
+            usageStore.proxyConfig = settingsStore.proxyConfig
+            usageStore.reloadConfig(thresholds: themeStore.thresholds)
+        }
     }
 
     private var brewMigrationBanner: some View {
@@ -359,7 +394,7 @@ struct SettingsSectionView: View {
     private func connectAutoDetect() {
         isImporting = true
         importMessage = nil
-        guard settingsStore.credentialsTokenExists() else {
+        guard usageStore.provider != .claude || settingsStore.credentialsTokenExists() else {
             isImporting = false
             importMessage = String(localized: "connect.noclaudecode")
             importSuccess = false
@@ -369,7 +404,9 @@ struct SettingsSectionView: View {
             let result = await usageStore.connectAutoDetect()
             isImporting = false
             if result.success {
-                importMessage = String(localized: "connect.oauth.success")
+                importMessage = usageStore.provider == .codex
+                    ? String(localized: "connect.codex.success")
+                    : String(localized: "connect.oauth.success")
                 importSuccess = true
                 usageStore.proxyConfig = settingsStore.proxyConfig
                 usageStore.reloadConfig(thresholds: themeStore.thresholds)

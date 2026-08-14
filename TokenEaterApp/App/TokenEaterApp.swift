@@ -84,6 +84,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.sessionStore.setVisibility(visibility.seconds)
             }
             .store(in: &cancellables)
+
+        usageStore.$provider
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] provider in
+                self?.vendorStatusStore.setVendor(provider.vendor)
+            }
+            .store(in: &cancellables)
     }
 }
 
@@ -116,12 +124,13 @@ struct TokenEaterApp: App {
         // missing this step would make every upgrading user land on onboarding.
         LegacyHelperCleanupService().migratePrefsIfNeeded()
 
-        self.usageStore = UsageStore()
+        let persistedProvider = UsageProvider.persisted
+        self.usageStore = UsageStore(provider: persistedProvider)
         self.themeStore = ThemeStore()
         self.settingsStore = SettingsStore()
         self.updateStore = UpdateStore()
         self.sessionStore = SessionStore()
-        self.vendorStatusStore = VendorStatusStore()
+        self.vendorStatusStore = VendorStatusStore(monitoredVendors: [persistedProvider.vendor])
 
         NotificationService().setupDelegate()
         appDelegate.usageStore = usageStore
@@ -138,4 +147,3 @@ struct TokenEaterApp: App {
         }
     }
 }
-

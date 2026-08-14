@@ -86,7 +86,9 @@ struct PopoverErrorBanner: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(Color(red: 0.97, green: 0.44, blue: 0.44))
-            Text(String(localized: "error.banner.reauth"))
+            Text(usageStore.provider == .codex
+                 ? String(localized: "error.banner.codex.signin")
+                 : String(localized: "error.banner.reauth"))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.7))
                 .lineLimit(1)
@@ -94,7 +96,9 @@ struct PopoverErrorBanner: View {
             Button {
                 Task { await usageStore.reauthenticate() }
             } label: {
-                Text(String(localized: "error.banner.reauth.button"))
+                Text(usageStore.provider == .codex
+                     ? String(localized: "error.banner.retry.button")
+                     : String(localized: "error.banner.reauth.button"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.horizontal, 10)
