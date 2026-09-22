@@ -15,11 +15,11 @@ import Foundation
 /// What a menu bar segment shows.
 enum MenuBarSegmentKind: String, Codable, CaseIterable, Identifiable {
     // Usage metrics (percentage)
-    case session, weekly, sonnet, fable, extraCredits
+    case session, claudeSession, claudeWeekly, codexSession, weekly, sonnet, fable, extraCredits
     // Pacing (delta vs linear pace)
     case sessionPacing, weeklyPacing
     // Status / time
-    case sessionReset, serviceStatus
+    case sessionReset, claudeSessionReset, serviceStatus
 
     var id: String { rawValue }
 
@@ -27,11 +27,11 @@ enum MenuBarSegmentKind: String, Codable, CaseIterable, Identifiable {
 
     var family: Family {
         switch self {
-        case .session, .weekly, .sonnet, .fable, .extraCredits:
+        case .session, .claudeSession, .claudeWeekly, .codexSession, .weekly, .sonnet, .fable, .extraCredits:
             return .usage
         case .sessionPacing, .weeklyPacing:
             return .pacing
-        case .sessionReset, .serviceStatus:
+        case .sessionReset, .claudeSessionReset, .serviceStatus:
             return .status
         }
     }
@@ -44,7 +44,7 @@ enum MenuBarSegmentKind: String, Codable, CaseIterable, Identifiable {
         case .pacing: return [.dot, .dotDelta, .delta, .pill]
         case .status:
             switch self {
-            case .sessionReset: return [.text, .pill]
+            case .sessionReset, .claudeSessionReset: return [.text, .pill]
             case .serviceStatus: return [.glyph, .pill]
             default: return [.text]
             }
@@ -54,7 +54,7 @@ enum MenuBarSegmentKind: String, Codable, CaseIterable, Identifiable {
     /// Presence-gated kinds render nothing (and the editor greys them) when the
     /// account lacks the metric, matching the pre-5.10 menu bar.
     var isPresenceGated: Bool {
-        self == .fable || self == .extraCredits
+        self == .claudeSession || self == .claudeWeekly || self == .claudeSessionReset || self == .codexSession || self == .fable || self == .extraCredits
     }
 }
 
@@ -194,7 +194,7 @@ struct MenuBarComposition: Codable, Equatable {
 
 /// Built-in starting points for the menu bar look.
 enum MenuBarBuiltinTemplate: String, CaseIterable, Identifiable {
-    case classic, minimalist, pills, pacingFocus, complete
+    case providers, classic, minimalist, pills, pacingFocus, complete
 
     var id: String { rawValue }
 
@@ -206,6 +206,13 @@ enum MenuBarBuiltinTemplate: String, CaseIterable, Identifiable {
     /// template twice never collides ids with a live composition.
     var composition: MenuBarComposition {
         switch self {
+        case .providers:
+            return MenuBarComposition(segments: [
+                MenuBarSegment(kind: .claudeSession, style: .labelValue),
+                MenuBarSegment(kind: .claudeSessionReset, style: .text),
+                MenuBarSegment(kind: .claudeWeekly, style: .labelValue),
+                MenuBarSegment(kind: .codexSession, style: .labelValue),
+            ])
         case .classic:
             return MenuBarComposition(segments: [
                 MenuBarSegment(kind: .session, style: .labelValue),
@@ -252,12 +259,15 @@ extension MenuBarSegmentKind {
     var symbolName: String {
         switch self {
         case .session: return "bolt.fill"
+        case .claudeSession: return "brain.head.profile"
+        case .claudeWeekly: return "calendar"
+        case .codexSession: return "terminal.fill"
         case .weekly: return "calendar"
         case .sonnet: return "quote.opening"
         case .fable: return "books.vertical.fill"
         case .extraCredits: return "creditcard.fill"
         case .sessionPacing, .weeklyPacing: return "speedometer"
-        case .sessionReset: return "clock.arrow.circlepath"
+        case .sessionReset, .claudeSessionReset: return "clock.arrow.circlepath"
         case .serviceStatus: return "dot.radiowaves.left.and.right"
         }
     }

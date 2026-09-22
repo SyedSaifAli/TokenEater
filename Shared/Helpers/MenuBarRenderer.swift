@@ -6,6 +6,9 @@ enum MenuBarRenderer {
         /// Drives which segments appear, in what order, and how each is drawn.
         let composition: MenuBarComposition
         let fiveHourPct: Int
+        let claudeSessionPct: Int
+        let claudeWeeklyPct: Int
+        let codexSessionPct: Int
         let sevenDayPct: Int
         let sonnetPct: Int
         let weeklyPacingDelta: Int
@@ -26,6 +29,9 @@ enum MenuBarRenderer {
         let fiveHourReset: String
         let fiveHourResetAbsolute: String
         let fiveHourResetDate: Date?
+        let claudeSessionResetDate: Date?
+        let claudeWeeklyResetDate: Date?
+        let codexSessionResetDate: Date?
         let sevenDayResetDate: Date?
         let sonnetResetDate: Date?
         /// True when the API returned a `five_hour` bucket at all. Independent
@@ -34,6 +40,9 @@ enum MenuBarRenderer {
         /// two 5h windows. Used to keep session segments visible (with a
         /// placeholder value) instead of hiding them whenever there's a lull.
         let hasFiveHourBucket: Bool
+        let hasClaudeSessionBucket: Bool
+        let hasClaudeWeeklyBucket: Bool
+        let hasCodexSessionBucket: Bool
         let hasSevenDayBucket: Bool
         let hasSonnetBucket: Bool
         let resetTextColorHex: String
@@ -75,7 +84,7 @@ enum MenuBarRenderer {
         if data.outageActive {
             return renderWithOutageBadge(data)
         }
-        if !data.hasConfig || (data.hasError && !data.isAwaitingRefresh) {
+        if !hasUsableMetrics(data) {
             return renderLogoTemplate()
         }
         return drawComposition(data).image
@@ -88,7 +97,7 @@ enum MenuBarRenderer {
     /// real item, but never composes the separate outage badge (the preview is
     /// about the composition itself).
     static func renderWithHitRects(_ data: RenderData) -> (image: NSImage, hitRects: [SegmentHitRect]) {
-        if !data.hasConfig || (data.hasError && !data.isAwaitingRefresh) {
+        if !hasUsableMetrics(data) {
             return (renderLogoTemplate(), [])
         }
         return drawComposition(data)
@@ -186,11 +195,23 @@ enum MenuBarRenderer {
     ///      gauge colors so it visually agrees with the session ring;
     ///   3. static: user-picked hex, falling back to the system label.
     private static func resetValueColor(_ data: RenderData) -> NSColor {
+        resetValueColor(
+            data,
+            utilization: data.fiveHourPct,
+            resetDate: data.fiveHourResetDate
+        )
+    }
+
+    private static func resetValueColor(
+        _ data: RenderData,
+        utilization: Int,
+        resetDate: Date?
+    ) -> NSColor {
         if data.menuBarMonochrome { return NSColor.labelColor }
         if data.smartResetColor {
             return data.themeColors.smartGaugeNSColor(
-                utilization: Double(data.fiveHourPct),
-                resetDate: data.fiveHourResetDate,
+                utilization: Double(utilization),
+                resetDate: resetDate,
                 windowDuration: 5 * 3600,
                 thresholds: data.thresholds,
                 pacingMargin: data.pacingMargin,
@@ -232,7 +253,7 @@ enum MenuBarRenderer {
     /// alone — avoids compositing a template logo into a coloured image.
     private static func renderWithOutageBadge(_ data: RenderData) -> NSImage {
         let badge = renderOutageBadgeImage(data)
-        let hasMetrics = data.hasConfig && (!data.hasError || data.isAwaitingRefresh)
+        let hasMetrics = hasUsableMetrics(data)
         guard hasMetrics else { return badge }
         let base = drawComposition(data)
         // An empty / all-filtered composition draws the template logo, which
@@ -348,6 +369,10 @@ enum MenuBarRenderer {
     /// and the row recompacts (falling back to the logo if all are filtered).
     private static func isSegmentAvailable(_ kind: MenuBarSegmentKind, data: RenderData) -> Bool {
         switch kind {
+        case .claudeSession: return data.hasClaudeSessionBucket
+        case .claudeWeekly: return data.hasClaudeWeeklyBucket
+        case .claudeSessionReset: return data.hasClaudeSessionBucket
+        case .codexSession: return data.hasCodexSessionBucket
         case .fable: return data.hasFable
         case .extraCredits: return data.hasExtraCredits
         case .session, .sessionReset, .sessionPacing: return data.hasFiveHourBucket
@@ -369,6 +394,14 @@ enum MenuBarRenderer {
         case .status:
             switch segment.kind {
             case .sessionReset: content = resetContent(style: style, format: segment.options.resetFormat, data: data)
+            case .claudeSessionReset:
+                content = providerResetContent(
+                    style: style,
+                    format: segment.options.resetFormat,
+                    utilization: data.claudeSessionPct,
+                    resetDate: data.claudeSessionResetDate,
+                    data: data
+                )
             case .serviceStatus: content = statusContent(style: style, data: data)
             default: content = nil
             }
@@ -469,6 +502,31 @@ enum MenuBarRenderer {
         }
     }
 
+    private static func providerResetContent(
+        style: MenuBarSegmentStyle,
+        format: ResetDisplayFormat,
+        utilization: Int,
+        resetDate: Date?,
+        data: RenderData
+    ) -> SegmentVisual.Content {
+        let reset = ResetCountdownFormatter.session(from: resetDate)
+        let resolved = ResetCountdownFormatter.display(
+            relative: reset.relative,
+            absolute: reset.absolute,
+            format: format
+        )
+        let text = resolved.isEmpty ? "-" : resolved
+        let color = resetValueColor(data, utilization: utilization, resetDate: resetDate)
+        switch style {
+        case .pill:
+            return .pill(text: text, tint: color)
+        default:
+            return .run(NSAttributedString(string: text, attributes: [
+                .font: systemFont(12, .bold, monoDigits: true), .foregroundColor: color,
+            ]))
+        }
+    }
+
     private static func statusContent(style: MenuBarSegmentStyle, data: RenderData) -> SegmentVisual.Content {
         let mono = data.menuBarMonochrome
         let color: NSColor = {
@@ -520,6 +578,9 @@ enum MenuBarRenderer {
     private static func usageValue(_ kind: MenuBarSegmentKind, data: RenderData) -> Int {
         switch kind {
         case .session: return data.fiveHourPct
+        case .claudeSession: return data.claudeSessionPct
+        case .claudeWeekly: return data.claudeWeeklyPct
+        case .codexSession: return data.codexSessionPct
         case .weekly: return data.sevenDayPct
         case .sonnet: return data.sonnetPct
         case .fable: return data.fablePct
@@ -531,6 +592,9 @@ enum MenuBarRenderer {
     private static func usageLabel(_ kind: MenuBarSegmentKind) -> String {
         switch kind {
         case .session: return MetricID.fiveHour.shortLabel
+        case .claudeSession: return "Claude"
+        case .claudeWeekly: return "Claude 7d"
+        case .codexSession: return "Codex"
         case .weekly: return MetricID.sevenDay.shortLabel
         case .sonnet: return MetricID.sonnet.shortLabel
         case .fable: return MetricID.fable.shortLabel
@@ -542,6 +606,9 @@ enum MenuBarRenderer {
     private static func usageResetDate(_ kind: MenuBarSegmentKind, data: RenderData) -> Date? {
         switch kind {
         case .session: return data.fiveHourResetDate
+        case .claudeSession: return data.claudeSessionResetDate
+        case .claudeWeekly: return data.claudeWeeklyResetDate
+        case .codexSession: return data.codexSessionResetDate
         case .weekly: return data.sevenDayResetDate
         case .sonnet: return data.sonnetResetDate
         case .fable: return data.fableResetDate
@@ -551,10 +618,15 @@ enum MenuBarRenderer {
 
     private static func usageWindow(_ kind: MenuBarSegmentKind) -> TimeInterval {
         switch kind {
-        case .session: return 5 * 3600
-        case .weekly, .sonnet, .fable: return 7 * 86_400
+        case .session, .claudeSession, .codexSession: return 5 * 3600
+        case .claudeWeekly, .weekly, .sonnet, .fable: return 7 * 86_400
         default: return 0  // extraCredits: windowless
         }
+    }
+
+    private static func hasUsableMetrics(_ data: RenderData) -> Bool {
+        let selectedProviderUsable = data.hasConfig && (!data.hasError || data.isAwaitingRefresh)
+        return selectedProviderUsable || data.hasClaudeSessionBucket || data.hasClaudeWeeklyBucket || data.hasCodexSessionBucket
     }
 
     private static func resetDisplayText(format: ResetDisplayFormat, data: RenderData) -> String {

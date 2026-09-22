@@ -19,6 +19,7 @@ final class StatusBarController: NSObject {
     private var countdownCancellable: AnyCancellable?
 
     private let usageStore: UsageStore
+    private let providerSessionStore: ProviderSessionStore
     private let themeStore: ThemeStore
     private let settingsStore: SettingsStore
     private let updateStore: UpdateStore
@@ -28,6 +29,7 @@ final class StatusBarController: NSObject {
 
     init(
         usageStore: UsageStore,
+        providerSessionStore: ProviderSessionStore,
         themeStore: ThemeStore,
         settingsStore: SettingsStore,
         updateStore: UpdateStore,
@@ -36,6 +38,7 @@ final class StatusBarController: NSObject {
         tokenFileMonitor: TokenFileMonitorProtocol = TokenFileMonitor()
     ) {
         self.usageStore = usageStore
+        self.providerSessionStore = providerSessionStore
         self.themeStore = themeStore
         self.settingsStore = settingsStore
         self.updateStore = updateStore
@@ -110,6 +113,7 @@ final class StatusBarController: NSObject {
     private func installPopoverContent() {
         let popoverView = MenuBarPopoverView()
             .environmentObject(usageStore)
+            .environmentObject(providerSessionStore)
             .environmentObject(themeStore)
             .environmentObject(settingsStore)
             .environmentObject(updateStore)
@@ -120,6 +124,7 @@ final class StatusBarController: NSObject {
     private func observeStoreChanges() {
         Publishers.MergeMany(
             usageStore.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            providerSessionStore.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
             themeStore.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
             settingsStore.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
             vendorStatusStore.objectWillChange.map { _ in () }.eraseToAnyPublisher()
@@ -133,9 +138,14 @@ final class StatusBarController: NSObject {
 
         Timer.publish(every: 60, on: .main, in: .common).autoconnect()
             .sink { [weak self] _ in
-                guard let self,
-                      self.settingsStore.menuBarComposition.visibleSegments.contains(where: { $0.kind == .sessionReset }) else { return }
-                self.usageStore.refreshResetCountdown()
+                guard let self else { return }
+                let visibleKinds = self.settingsStore.menuBarComposition.visibleSegments.map(\.kind)
+                guard visibleKinds.contains(.sessionReset) || visibleKinds.contains(.claudeSessionReset) else { return }
+                if visibleKinds.contains(.sessionReset) {
+                    self.usageStore.refreshResetCountdown()
+                } else {
+                    self.updateMenuBarIcon()
+                }
             }
             .store(in: &cancellables)
 
@@ -172,6 +182,21 @@ final class StatusBarController: NSObject {
             .removeDuplicates()
             .sink { [weak self] newInterval in
                 self?.usageStore.refreshIntervalSeconds = TimeInterval(newInterval)
+                self?.providerSessionStore.refreshIntervalSeconds = TimeInterval(newInterval)
+            }
+            .store(in: &cancellables)
+
+        usageStore.$provider
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] provider in
+                guard let self else { return }
+                Task {
+                    await self.providerSessionStore.refreshCompanion(
+                        selectedProvider: provider,
+                        proxyConfig: self.settingsStore.proxyConfig
+                    )
+                }
             }
             .store(in: &cancellables)
 
@@ -205,11 +230,16 @@ final class StatusBarController: NSObject {
         usageStore.pacingMargin = settingsStore.pacingMargin
         usageStore.pacingSchedule = settingsStore.pacingSchedule
         usageStore.refreshIntervalSeconds = TimeInterval(settingsStore.refreshInterval)
+        providerSessionStore.refreshIntervalSeconds = TimeInterval(settingsStore.refreshInterval)
         usageStore.notifTogglesProvider = { [weak self] in self?.makeNotificationToggles() }
         vendorStatusStore.notifTogglesProvider = { [weak self] in self?.makeNotificationToggles() }
         vendorStatusStore.healthyPollInterval = TimeInterval(settingsStore.statusPollInterval)
         usageStore.reloadConfig(thresholds: themeStore.thresholds)
         usageStore.startAutoRefresh(thresholds: themeStore.thresholds)
+        providerSessionStore.startAutoRefresh(
+            selectedProvider: { [weak usageStore] in usageStore?.provider ?? .claude },
+            proxyConfig: { [weak settingsStore] in settingsStore?.proxyConfig }
+        )
         themeStore.syncToSharedFile()
 
         // Monitor token files (credentials + config.json) for changes
@@ -219,7 +249,13 @@ final class StatusBarController: NSObject {
             .sink { [weak self] in
                 guard let self else { return }
                 self.usageStore.handleTokenChange()
-                Task { await self.usageStore.refresh(force: true) }
+                Task {
+                    await self.usageStore.refresh(force: true)
+                    await self.providerSessionStore.refreshCompanion(
+                        selectedProvider: self.usageStore.provider,
+                        proxyConfig: self.settingsStore.proxyConfig
+                    )
+                }
             }
             .store(in: &cancellables)
 
@@ -232,6 +268,10 @@ final class StatusBarController: NSObject {
             guard let self else { return }
             Task { @MainActor in
                 await self.usageStore.refreshIfStale()
+                await self.providerSessionStore.refreshCompanion(
+                    selectedProvider: self.usageStore.provider,
+                    proxyConfig: self.settingsStore.proxyConfig
+                )
             }
         }
 
@@ -321,8 +361,15 @@ final class StatusBarController: NSObject {
     // MARK: - Menu Bar Icon
 
     private func updateMenuBarIcon() {
+        providerSessionStore.syncSelected(provider: usageStore.provider, usage: usageStore.lastUsage)
         let image = MenuBarRenderer.render(
-            .live(usage: usageStore, theme: themeStore, settings: settingsStore, vendor: vendorStatusStore)
+            .live(
+                usage: usageStore,
+                providerSessions: providerSessionStore,
+                theme: themeStore,
+                settings: settingsStore,
+                vendor: vendorStatusStore
+            )
         )
         statusItem.button?.image = image
     }
@@ -506,7 +553,13 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func contextRefresh() {
-        Task { await usageStore.refresh(force: true) }
+        Task {
+            await usageStore.refresh(force: true)
+            await providerSessionStore.refreshCompanion(
+                selectedProvider: usageStore.provider,
+                proxyConfig: settingsStore.proxyConfig
+            )
+        }
     }
 
     @objc private func contextOpenDashboard() {
@@ -621,6 +674,7 @@ final class StatusBarController: NSObject {
 
         let appView = MainAppView()
             .environmentObject(usageStore)
+            .environmentObject(providerSessionStore)
             .environmentObject(themeStore)
             .environmentObject(settingsStore)
             .environmentObject(updateStore)

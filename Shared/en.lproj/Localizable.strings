@@ -737,6 +737,7 @@
 "menuBar.editor.segments" = "Segments";
 "menuBar.editor.addSegment" = "Add segment";
 "menuBar.editor.family.metrics" = "Metrics";
+"menuBar.editor.family.providers" = "Providers";
 "menuBar.editor.family.pacing" = "Pacing";
 "menuBar.editor.family.status" = "Status";
 "menuBar.editor.unavailable" = "not active on this account";
@@ -753,6 +754,9 @@
 "menuBar.editor.emptyList" = "No segments. Add one, or the menu bar shows just the app icon.";
 
 "menuBarSegment.session" = "Session (5h)";
+"menuBarSegment.claudeSession" = "Claude session";
+"menuBarSegment.claudeWeekly" = "Claude weekly usage";
+"menuBarSegment.codexSession" = "Codex session";
 "menuBarSegment.weekly" = "Weekly";
 "menuBarSegment.sonnet" = "Sonnet";
 "menuBarSegment.fable" = "Fable";
@@ -760,6 +764,7 @@
 "menuBarSegment.sessionPacing" = "Session pacing";
 "menuBarSegment.weeklyPacing" = "Weekly pacing";
 "menuBarSegment.sessionReset" = "Session reset countdown";
+"menuBarSegment.claudeSessionReset" = "Claude session time";
 "menuBarSegment.serviceStatus" = "Service status";
 
 "menuBarStyle.segment.labelValue" = "Label + value";
@@ -773,6 +778,7 @@
 "menuBarStyle.segment.glyph" = "Glyph";
 
 "menuBarTemplate.classic" = "Classic";
+"menuBarTemplate.providers" = "Claude + Codex";
 "menuBarTemplate.minimalist" = "Minimalist";
 "menuBarTemplate.pills" = "Pills";
 "menuBarTemplate.pacingFocus" = "Pacing focus";

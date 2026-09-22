@@ -88,11 +88,16 @@ struct MenuBarOutageBadgeTests {
         segments: [MenuBarSegment] = [MenuBarSegment(kind: .session, style: .labelValue)],
         outageActive: Bool = false,
         outageHealth: VendorHealth = .healthy,
-        nextPollSeconds: Int? = nil
+        nextPollSeconds: Int? = nil,
+        claudeSessionResetDate: Date? = nil,
+        hasClaudeWeeklyBucket: Bool = true
     ) -> MenuBarRenderer.RenderData {
         MenuBarRenderer.RenderData(
             composition: MenuBarComposition(segments: segments),
             fiveHourPct: 10,
+            claudeSessionPct: 31,
+            claudeWeeklyPct: 58,
+            codexSessionPct: 47,
             sevenDayPct: 5,
             sonnetPct: 0,
             weeklyPacingDelta: 0,
@@ -110,9 +115,15 @@ struct MenuBarOutageBadgeTests {
             fiveHourReset: "",
             fiveHourResetAbsolute: "",
             fiveHourResetDate: nil,
+            claudeSessionResetDate: claudeSessionResetDate,
+            claudeWeeklyResetDate: nil,
+            codexSessionResetDate: nil,
             sevenDayResetDate: nil,
             sonnetResetDate: nil,
             hasFiveHourBucket: true,
+            hasClaudeSessionBucket: true,
+            hasClaudeWeeklyBucket: hasClaudeWeeklyBucket,
+            hasCodexSessionBucket: true,
             hasSevenDayBucket: true,
             hasSonnetBucket: false,
             resetTextColorHex: "",
@@ -129,6 +140,67 @@ struct MenuBarOutageBadgeTests {
             extraCreditsPct: 0,
             hasExtraCredits: false
         )
+    }
+
+    @Test("provider session segments render both percentages")
+    func providerSessionsRenderTogether() {
+        let both = Self.sampleRenderData(segments: [
+            MenuBarSegment(kind: .claudeSession, style: .labelValue),
+            MenuBarSegment(kind: .codexSession, style: .labelValue),
+        ])
+        let one = Self.sampleRenderData(segments: [
+            MenuBarSegment(kind: .claudeSession, style: .labelValue),
+        ])
+
+        let bothImage = MenuBarRenderer.renderUncached(both)
+        let oneImage = MenuBarRenderer.renderUncached(one)
+
+        #expect(bothImage.isTemplate == false)
+        #expect(bothImage.size.width > oneImage.size.width)
+    }
+
+    @Test("Claude session time renders beside its percentage")
+    func claudeSessionTimeRenders() {
+        let resetDate = Date().addingTimeInterval(90 * 60)
+        let withTime = Self.sampleRenderData(
+            segments: [
+                MenuBarSegment(kind: .claudeSession, style: .labelValue),
+                MenuBarSegment(kind: .claudeSessionReset, style: .text),
+            ],
+            claudeSessionResetDate: resetDate
+        )
+        let percentageOnly = Self.sampleRenderData(segments: [
+            MenuBarSegment(kind: .claudeSession, style: .labelValue),
+        ])
+
+        let withTimeImage = MenuBarRenderer.renderUncached(withTime)
+        let percentageOnlyImage = MenuBarRenderer.renderUncached(percentageOnly)
+
+        #expect(withTimeImage.isTemplate == false)
+        #expect(withTimeImage.size.width > percentageOnlyImage.size.width)
+    }
+
+    @Test("Claude weekly usage renders alongside session usage")
+    func claudeWeeklyRenders() {
+        let both = Self.sampleRenderData(segments: [
+            MenuBarSegment(kind: .claudeSession, style: .labelValue),
+            MenuBarSegment(kind: .claudeWeekly, style: .labelValue),
+        ])
+        let sessionOnly = Self.sampleRenderData(segments: [
+            MenuBarSegment(kind: .claudeSession, style: .labelValue),
+        ])
+
+        #expect(MenuBarRenderer.renderUncached(both).size.width > MenuBarRenderer.renderUncached(sessionOnly).size.width)
+    }
+
+    @Test("Claude weekly segment hides when its bucket is unavailable")
+    func claudeWeeklyHidesWithoutBucket() {
+        let segment = MenuBarSegment(kind: .claudeWeekly, style: .labelValue)
+        let available = Self.sampleRenderData(segments: [segment])
+        let unavailable = Self.sampleRenderData(segments: [segment], hasClaudeWeeklyBucket: false)
+
+        #expect(MenuBarRenderer.renderUncached(available).isTemplate == false)
+        #expect(MenuBarRenderer.renderUncached(unavailable).isTemplate == true)
     }
 
     @Test("outage badge widens the rendered image vs. no badge")
@@ -282,15 +354,21 @@ struct MenuBarExtraCreditsRenderTests {
     ) -> MenuBarRenderer.RenderData {
         MenuBarRenderer.RenderData(
             composition: MenuBarComposition(segments: segments),
-            fiveHourPct: 0, sevenDayPct: 0, sonnetPct: 0,
+            fiveHourPct: 0, claudeSessionPct: 0, claudeWeeklyPct: 0, codexSessionPct: 0,
+            sevenDayPct: 0, sonnetPct: 0,
             weeklyPacingDelta: 0, weeklyPacingZone: .onTrack, hasWeeklyPacing: false,
             sessionPacingDelta: 0, sessionPacingZone: .onTrack, hasSessionPacing: false,
             hasConfig: true, hasError: false, isAwaitingRefresh: false,
             themeColors: .default, thresholds: .default,
             menuBarMonochrome: false,
             fiveHourReset: "", fiveHourResetAbsolute: "",
-            fiveHourResetDate: nil, sevenDayResetDate: nil, sonnetResetDate: nil,
+            fiveHourResetDate: nil,
+            claudeSessionResetDate: nil, claudeWeeklyResetDate: nil, codexSessionResetDate: nil,
+            sevenDayResetDate: nil, sonnetResetDate: nil,
             hasFiveHourBucket: false,
+            hasClaudeSessionBucket: false,
+            hasClaudeWeeklyBucket: false,
+            hasCodexSessionBucket: false,
             hasSevenDayBucket: false,
             hasSonnetBucket: false,
             resetTextColorHex: "", sessionPeriodColorHex: "",

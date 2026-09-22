@@ -16,6 +16,7 @@ import SwiftUI
 struct MenuBarEditorView<PreviewHeader: View, PreviewFooter: View>: View {
     @EnvironmentObject private var settingsStore: SettingsStore
     @EnvironmentObject private var usageStore: UsageStore
+    @EnvironmentObject private var providerSessionStore: ProviderSessionStore
 
     @State private var selectedSegmentID: UUID?
     @State private var showSaveDialog = false
@@ -208,8 +209,16 @@ struct MenuBarEditorView<PreviewHeader: View, PreviewFooter: View>: View {
 
     private var addSegmentMenu: some View {
         Menu {
+            Section(String(localized: "menuBar.editor.family.providers")) {
+                addButton(for: .claudeSession)
+                addButton(for: .claudeSessionReset)
+                addButton(for: .claudeWeekly)
+                addButton(for: .codexSession)
+            }
             Section(String(localized: "menuBar.editor.family.metrics")) {
-                let metricKinds: [MenuBarSegmentKind] = [.session, .weekly, .sonnet, .fable, .extraCredits]
+                let metricKinds: [MenuBarSegmentKind] = [
+                    .session, .weekly, .sonnet, .fable, .extraCredits,
+                ]
                 ForEach(metricKinds) { addButton(for: $0) }
             }
             Section(String(localized: "menuBar.editor.family.pacing")) {
@@ -254,6 +263,10 @@ struct MenuBarEditorView<PreviewHeader: View, PreviewFooter: View>: View {
 
     private func accountHasKind(_ kind: MenuBarSegmentKind) -> Bool {
         switch kind {
+        case .claudeSession: return providerSessionStore.claude != nil
+        case .claudeWeekly: return providerSessionStore.claudeWeekly != nil
+        case .claudeSessionReset: return providerSessionStore.claude != nil
+        case .codexSession: return providerSessionStore.codex != nil
         case .fable: return usageStore.hasFable
         case .extraCredits: return usageStore.hasExtraCredits
         default: return true
@@ -421,6 +434,7 @@ private struct MenuBarTemplateSchematic: View {
 
 private struct MenuBarLivePreview: View {
     @EnvironmentObject private var usageStore: UsageStore
+    @EnvironmentObject private var providerSessionStore: ProviderSessionStore
     @EnvironmentObject private var themeStore: ThemeStore
     @EnvironmentObject private var settingsStore: SettingsStore
     @EnvironmentObject private var vendorStatusStore: VendorStatusStore
@@ -431,7 +445,11 @@ private struct MenuBarLivePreview: View {
 
     var body: some View {
         let data = MenuBarRenderer.RenderData.live(
-            usage: usageStore, theme: themeStore, settings: settingsStore, vendor: vendorStatusStore
+            usage: usageStore,
+            providerSessions: providerSessionStore,
+            theme: themeStore,
+            settings: settingsStore,
+            vendor: vendorStatusStore
         )
         let rendered = MenuBarRenderer.renderWithHitRects(data)
         let w = rendered.image.size.width * scale
@@ -501,6 +519,7 @@ private struct MenuBarLivePreview: View {
 private struct MenuBarSegmentListEditor: View {
     @EnvironmentObject private var settingsStore: SettingsStore
     @EnvironmentObject private var usageStore: UsageStore
+    @EnvironmentObject private var providerSessionStore: ProviderSessionStore
 
     @Binding var selectedSegmentID: UUID?
     @State private var draggingID: UUID?
@@ -557,6 +576,10 @@ private struct MenuBarSegmentListEditor: View {
 
     private func isAvailable(_ kind: MenuBarSegmentKind) -> Bool {
         switch kind {
+        case .claudeSession: return providerSessionStore.claude != nil
+        case .claudeWeekly: return providerSessionStore.claudeWeekly != nil
+        case .claudeSessionReset: return providerSessionStore.claude != nil
+        case .codexSession: return providerSessionStore.codex != nil
         case .fable: return usageStore.hasFable
         case .extraCredits: return usageStore.hasExtraCredits
         default: return true
@@ -631,7 +654,7 @@ private struct MenuBarSegmentRow: View {
             HStack(spacing: 8) {
                 if segment.kind.allowedStyles.count > 1 { styleMenu }
                 if segment.kind.family == .pacing { shapeMenu }
-                if segment.kind == .sessionReset { formatMenu }
+                if segment.kind == .sessionReset || segment.kind == .claudeSessionReset { formatMenu }
                 Spacer(minLength: 0)
             }
             .padding(.leading, 24)

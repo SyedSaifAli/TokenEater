@@ -29,7 +29,7 @@
 
 A native macOS menu bar app + desktop widgets that tracks Claude or Codex usage in real time. Switch the active usage source at any time in Settings.
 
-- **Menu bar** — Live percentages, color-coded thresholds, and a fully composable popover dashboard: build it element by element (rings, chips, arcs, pacing bars... at full, half, or third width), start from built-in templates (Classic / Compact / Focus / Minimalist and more), and save your own.
+- **Menu bar** — Live percentages, including Claude's session and weekly usage, Claude's reset countdown, and Codex's session usage through the provider template, color-coded thresholds, and a fully composable popover dashboard: build it element by element (rings, chips, arcs, pacing bars... at full, half, or third width), start from built-in templates (Classic / Compact / Focus / Minimalist and more), and save your own.
 - **Dashboard** — Three-space layout (Monitoring / History / Settings) with flippable tiles surfacing 7d sparklines, peak day, and a pacing-vs-equilibrium graph.
 - **History (Claude)** — Tokens-over-time browser sourced from Claude Code's local JSONL logs. Filter by model family (Opus / Sonnet / Haiku), switch range (24h / 7d / 30d / 90d), hover bars for daily breakdown, identify your heaviest day and top project at a glance.
 - **Widgets** — Native WidgetKit widgets (usage gauges, progress bars, pacing) with reactive refresh.

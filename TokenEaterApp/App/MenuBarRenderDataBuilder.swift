@@ -7,6 +7,7 @@ extension MenuBarRenderer.RenderData {
     /// render the exact same pixels for the current composition.
     static func live(
         usage: UsageStore,
+        providerSessions: ProviderSessionStore,
         theme: ThemeStore,
         settings: SettingsStore,
         vendor: VendorStatusStore
@@ -14,6 +15,9 @@ extension MenuBarRenderer.RenderData {
         MenuBarRenderer.RenderData(
             composition: settings.menuBarComposition,
             fiveHourPct: usage.fiveHourPct,
+            claudeSessionPct: providerSessions.claude?.percentage ?? 0,
+            claudeWeeklyPct: providerSessions.claudeWeekly?.percentage ?? 0,
+            codexSessionPct: providerSessions.codex?.percentage ?? 0,
             sevenDayPct: usage.sevenDayPct,
             sonnetPct: usage.sonnetPct,
             weeklyPacingDelta: Int(usage.pacingResult?.delta ?? 0),
@@ -31,9 +35,15 @@ extension MenuBarRenderer.RenderData {
             fiveHourReset: usage.fiveHourReset,
             fiveHourResetAbsolute: usage.fiveHourResetAbsolute,
             fiveHourResetDate: usage.lastUsage?.fiveHour?.resetsAtDate,
+            claudeSessionResetDate: providerSessions.claude?.resetDate,
+            claudeWeeklyResetDate: providerSessions.claudeWeekly?.resetDate,
+            codexSessionResetDate: providerSessions.codex?.resetDate,
             sevenDayResetDate: usage.lastUsage?.sevenDay?.resetsAtDate,
             sonnetResetDate: usage.lastUsage?.sevenDaySonnet?.resetsAtDate,
             hasFiveHourBucket: usage.lastUsage?.fiveHour != nil,
+            hasClaudeSessionBucket: providerSessions.claude != nil,
+            hasClaudeWeeklyBucket: providerSessions.claudeWeekly != nil,
+            hasCodexSessionBucket: providerSessions.codex != nil,
             hasSevenDayBucket: usage.lastUsage?.sevenDay != nil,
             hasSonnetBucket: usage.lastUsage?.sevenDaySonnet != nil,
             resetTextColorHex: settings.resetTextColorHex,

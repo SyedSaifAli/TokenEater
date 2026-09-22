@@ -737,6 +737,7 @@
 "menuBar.editor.segments" = "Segments";
 "menuBar.editor.addSegment" = "Ajouter un segment";
 "menuBar.editor.family.metrics" = "Métriques";
+"menuBar.editor.family.providers" = "Fournisseurs";
 "menuBar.editor.family.pacing" = "Pacing";
 "menuBar.editor.family.status" = "Statut";
 "menuBar.editor.unavailable" = "pas actif sur ce compte";
@@ -753,6 +754,9 @@
 "menuBar.editor.emptyList" = "Aucun segment. Ajoutez-en un, sinon le menu bar affiche juste l'icône.";
 
 "menuBarSegment.session" = "Session (5h)";
+"menuBarSegment.claudeSession" = "Session Claude";
+"menuBarSegment.claudeWeekly" = "Utilisation hebdomadaire Claude";
+"menuBarSegment.codexSession" = "Session Codex";
 "menuBarSegment.weekly" = "Hebdomadaire";
 "menuBarSegment.sonnet" = "Sonnet";
 "menuBarSegment.fable" = "Fable";
@@ -760,6 +764,7 @@
 "menuBarSegment.sessionPacing" = "Pacing session";
 "menuBarSegment.weeklyPacing" = "Pacing hebdo";
 "menuBarSegment.sessionReset" = "Compte à rebours session";
+"menuBarSegment.claudeSessionReset" = "Temps de session Claude";
 "menuBarSegment.serviceStatus" = "Statut du service";
 
 "menuBarStyle.segment.labelValue" = "Label + valeur";
@@ -773,6 +778,7 @@
 "menuBarStyle.segment.glyph" = "Glyphe";
 
 "menuBarTemplate.classic" = "Classique";
+"menuBarTemplate.providers" = "Claude + Codex";
 "menuBarTemplate.minimalist" = "Minimaliste";
 "menuBarTemplate.pills" = "Pills";
 "menuBarTemplate.pacingFocus" = "Pacing focus";
